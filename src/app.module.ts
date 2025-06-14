@@ -6,14 +6,19 @@ import { AnnovarService } from './services/annovar.service';
 import { VcfService } from './services/vcf.service';
 import { CommonService } from './services/common.service';
 import { GlobalService } from './services/global.service';
+import { ScheduleModule } from '@nestjs/schedule';
+import { HttpModule } from '@nestjs/axios';
+import { CommunicationService } from './services/communication.service';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ 
       isGlobal: true,
     }),
+    ScheduleModule.forRoot(),
+    HttpModule
   ],
   controllers: [AppController],
-  providers: [AppService, AnnovarService, VcfService, CommonService, GlobalService],
+  providers: [AppService, AnnovarService, VcfService, CommonService, GlobalService, CommunicationService],
 })
 export class AppModule {}
