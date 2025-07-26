@@ -5,7 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { AnalysisModel, AnalysisStatus } from './models/analysis.model';
 import * as fs from 'fs'
-import { INTERSECT_BED_CMD, VCF_APPLIED_BED, VCF_BGZIP_CMD, VCF_FILE, VCF_MODIFIED_FILE, VCF_ORIGINAL_FILE, VCF_ORIGINAL_ZIP_FILE, VCF_ZIP_FILE, VEP_OUTPUT } from './constants';
+import { INTERSECT_BED_CMD, VCF_APPLIED_BED, VCF_BGZIP_CMD, VCF_FILE, VCF_MODIFIED_FILE, VCF_ORIGINAL_FILE, VCF_ORIGINAL_ZIP_FILE, VCF_SORT_CMD, VCF_TABIX_CMD, VCF_ZIP_FILE, VEP_OUTPUT } from './constants';
 
 @Injectable()
 export class AppService {
@@ -15,12 +15,10 @@ export class AppService {
   private defaultBedFile: string;
   private s3Dir: string;
   private vcfModified: string;
-  private vcfOriginalTmp: string;
   private vcfOriginal: string;
   private vcfBed: string;
   private vcfFile: string;
   private vepOutput: string;
-  private vepInput: string;
   private analysis: AnalysisModel;
   private isGZ: boolean = false;
   private CWD = process.cwd();
@@ -139,37 +137,40 @@ export class AppService {
   async applyBedFile() {
     this.logger.log('Applying BED file');
 
-    let count = await this.vcfService.getRowCount(`${this.s3Dir}/${this.vcfFile}`);
+    let count = await this.annovarService.getRowCount(`${this.s3Dir}/${this.vcfFile}`);
 
     console.log(`Row count in VCF file: ${count}`);
 
-    // let options = [
-    //   `-b ${this.defaultBedFile}`,
-    //   `-a ${this.isGZ ? `${this.vcfFile}.gz` : this.vcfFile}`
-    // ]
+    let options = [
+      `-b ${this.defaultBedFile}`,
+      `-a ${this.isGZ ? `${this.vcfFile}.gz` : this.vcfFile}`
+    ];
 
-    // let zipFileCommand = 'ls'
+    let zipFileCommand = 'ls';
 
-    // if (this.isGZ) {
-    //   zipFileCommand = `${VCF_BGZIP_CMD} -f ${this.vcfBed}`
-    // }
+    if (this.isGZ) {
+      zipFileCommand = `${VCF_BGZIP_CMD} -f ${this.vcfBed} && ${VCF_TABIX_CMD} -f ${this.vcfBed}.gz`;
+    }
 
-    // let commands = [
-    //   `${INTERSECT_BED_CMD} ${options.join(' ')} | grep -v "0/0" > ${this.vcfFile}.body`,
-    //   `less ${this.vcfFile} | awk '{if (index($0, "#") == 1) print $0}' > ${this.vcfFile}.header`,
-    //   `cat ${this.vcfFile}.header ${this.vcfFile}.body > ${this.vcfBed}`,
-    //   zipFileCommand
-    // ]
+    let commands = [
+      `cd ${this.s3Dir}`,
+      `${INTERSECT_BED_CMD} ${options.join(' ')} | grep -v "0/0" > ${this.vcfFile}.body`,
+      `less ${this.vcfFile} | awk '{if (index($0, "#") == 1) print $0}' > ${this.vcfFile}.header`,
+      `cat ${this.vcfFile}.header ${this.vcfFile}.body > ${this.vcfBed}`,
+      `rm -rf ${this.vcfFile}.header ${this.vcfFile}.body`,
+      zipFileCommand
+    ];
 
-    // let command = commands.filter(cmd => cmd).join(' && ');
+    let command = commands.filter(cmd => cmd).join(' && ');
 
-    // await this.commonService.runCommand(command);
+    await this.commonService.runCommand(command);
 
-    // // Compressed bed & get tabix
+    // Compressed bed & get tabix
     // commands = [
-    //   `bgzip -f ${this.vcfBed}`,
-    //   `tabix -f ${this.vcfBed}.gz`
-    // ]
+    //   `cd ${this.s3Dir}`,
+    //   `${VCF_BGZIP_CMD} -f ${this.vcfBed}`,
+    //   `${VCF_TABIX_CMD} -f ${this.vcfBed}.gz`
+    // ];
 
     // command = commands.join(' && ');
 
@@ -184,55 +185,54 @@ export class AppService {
     } else {
       await this.prepareNormalFile()
     }
-
   }
 
   async prepareZipFile() {
     this.logger.log('Preparing zipped VCF file');
-    // let sortCmd = `${VCF_SORT_CMD} -c ${this.vcfBed}.gz > ${this.vcfFile}`
-    // let bgzipCmd = `${VCF_BGZIP_CMD} -f ${this.vcfFile}`
-    // let tabixCmd = `${VCF_TABIX_CMD} -f ${this.vcfFile}.gz`
 
-    // this.vepInput = `${this.vcfFile}`
+    let sortCmd = `${VCF_SORT_CMD} ${this.vcfBed}.gz > ${this.vcfFile}`;
+    let bgzipCmd = `${VCF_BGZIP_CMD} -f ${this.vcfFile}`;
+    let tabixCmd = `${VCF_TABIX_CMD} -f ${this.vcfFile}.gz`;
 
-    // let commands = [
-    //   sortCmd,
-    //   bgzipCmd,
-    //   tabixCmd
-    // ]
+    let commands = [
+      `cd ${this.s3Dir}`,
+      sortCmd,
+      bgzipCmd,
+      tabixCmd
+    ];
 
-    // let command = commands.join(' && ')
+    let command = commands.join(' && ');
 
-    // await this.commonService.runCommand(command)
+    await this.commonService.runCommand(command);
 
-    // await this.annovarService.validateVcf(this.vcfFile)
+    await this.annovarService.validateVcf(this.vcfFile);
 
-    // await this.annovarService.cleanVcf(this.vcfFile, this.vcfModified)
+    await this.annovarService.cleanVcf(this.vcfFile, this.vcfModified);
   }
 
   async prepareNormalFile() {
     this.logger.log('Preparing normal VCF file');
-    // let sortCmd = `${VCF_SORT_CMD} -c ${this.vcfBed} > ${this.vcfFile}`
 
-    // this.vepInput = this.vcfFile
+    let sortCmd = `cd ${this.s3Dir} && ${VCF_SORT_CMD} ${this.vcfBed} > ${this.vcfFile}`;
 
-    // await this.commonService.runCommand(sortCmd);
+    await this.commonService.runCommand(sortCmd);
 
-    // await this.annovarService.validateVcf(this.vcfFile)
+    await this.annovarService.validateVcf(this.vcfFile);
 
-    // await this.annovarService.cleanVcf(this.vcfFile, this.vcfModified);
+    await this.annovarService.cleanVcf(this.vcfFile, this.vcfModified);
 
-    // let bgzipCmd = `${VCF_BGZIP_CMD} -f ${this.vcfFile}`
-    // let tabixCmd = `${VCF_TABIX_CMD} -f ${this.vcfFile}.gz`
+    let bgzipCmd = `${VCF_BGZIP_CMD} -f ${this.vcfFile}`;
+    let tabixCmd = `${VCF_TABIX_CMD} -f ${this.vcfFile}.gz`;
 
-    // let commands = [
-    //   bgzipCmd,
-    //   tabixCmd
-    // ]
+    let commands = [
+      `cd ${this.s3Dir}`,
+      bgzipCmd,
+      tabixCmd
+    ];
 
-    // let command = commands.join(' && ')
+    let command = commands.join(' && ');
 
-    // await this.commonService.runCommand(command)
+    await this.commonService.runCommand(command);
   }
 
   getHello(): string {
