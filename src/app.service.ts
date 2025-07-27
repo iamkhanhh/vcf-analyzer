@@ -87,8 +87,12 @@ export class AppService {
 
       await this.prepareFile();
 
-      await this.annovarService.runVEP(this.vcfFile ,this.vepOutput)
+      await this.annovarService.runVEP(this.vcfFile, this.vepOutput)
 
+      // Run VCF analysis
+      await this.vcfService.run(analysis, this.vcfFile, this.vepOutput);
+
+      this.logger.log('Done Analysis')
     } catch (error) {
       this.logger.error(`Error analyzing VCF for analysis ID ${this.analysis.id}`, error);
       throw error;
@@ -120,7 +124,7 @@ export class AppService {
     let zipFileCommand = 'ls';
 
     if (this.isGZ) {
-      zipFileCommand = `bgzip -f ${this.vcfFile}`;
+      zipFileCommand = `bgzip -c ${this.vcfFile} > ${this.vcfFile}.gz`;
     }
 
     let commands = [
@@ -190,8 +194,8 @@ export class AppService {
   async prepareZipFile() {
     this.logger.log('Preparing zipped VCF file');
 
-    let sortCmd = `${VCF_SORT_CMD} ${this.vcfBed}.gz > ${this.vcfFile}`;
-    let bgzipCmd = `${VCF_BGZIP_CMD} -f ${this.vcfFile}`;
+    let sortCmd = `zless ${this.vcfBed}.gz | awk '$1 ~ /^#/ {print $0;next} {print $0 | "sort -k1,1V -k2,2n"}' > ${this.vcfFile}`;
+    let bgzipCmd = `${VCF_BGZIP_CMD} -c ${this.vcfFile} > ${this.vcfFile}.gz`;
     let tabixCmd = `${VCF_TABIX_CMD} -f ${this.vcfFile}.gz`;
 
     let commands = [
@@ -213,7 +217,7 @@ export class AppService {
   async prepareNormalFile() {
     this.logger.log('Preparing normal VCF file');
 
-    let sortCmd = `cd ${this.s3Dir} && ${VCF_SORT_CMD} ${this.vcfBed} > ${this.vcfFile}`;
+    let sortCmd = `cd ${this.s3Dir} && less ${this.vcfBed} | awk '$1 ~ /^#/ {print $0;next} {print $0 | "sort -k1,1V -k2,2n"}' > ${this.vcfFile}`;
 
     await this.commonService.runCommand(sortCmd);
 
@@ -221,7 +225,7 @@ export class AppService {
 
     await this.annovarService.cleanVcf(this.vcfFile, this.vcfModified);
 
-    let bgzipCmd = `${VCF_BGZIP_CMD} -f ${this.vcfFile}`;
+    let bgzipCmd = `${VCF_BGZIP_CMD} -c ${this.vcfFile} > ${this.vcfFile}.gz`;
     let tabixCmd = `${VCF_TABIX_CMD} -f ${this.vcfFile}.gz`;
 
     let commands = [

@@ -14,5 +14,9 @@ export class VcfService {
         this.s3Dir = this.configService.get<string>('AWS_DIR');
     }
 
-    
+    async run(analysis: any, vcfFile: string, vepOutput: string) {
+        this.logger.log(`Running VCF analysis for analysis ID ${analysis.id}`);
+        console.log(`VCF File: ${vcfFile}`);
+        console.log(`VEP Output: ${vepOutput}`);
+    }
 }
