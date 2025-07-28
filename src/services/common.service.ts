@@ -6,6 +6,7 @@ import { AnalysisModel } from 'src/models/analysis.model';
 @Injectable()
 export class CommonService {
     private readonly logger = new Logger(CommonService.name)
+    private CWD = process.cwd();
 
     constructor(
         private configService: ConfigService
@@ -43,5 +44,9 @@ export class CommonService {
 
     getAnalysisFolder(analysis: AnalysisModel) {
         return `${this.configService.get('ANALYSIS_FOLDER')}/${analysis.user_id}/${analysis.id}`
+    }
+
+    getTmpFolder(analysis: AnalysisModel) {
+        return `${this.CWD}/tmp/analysis_${analysis.id}`
     }
 }
