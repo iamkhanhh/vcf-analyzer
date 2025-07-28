@@ -33,7 +33,6 @@ export class AppService {
   ) {
     this.defaultBedFile = this.configService.get<string>('DEFAULT_BED');
     this.s3Dir = this.configService.get<string>('AWS_DIR');
-    this.vepOutput = `${this.CWD}/tmp/${VEP_OUTPUT}`;
   }
 
   @Cron(CronExpression.EVERY_30_SECONDS)
@@ -78,6 +77,7 @@ export class AppService {
       this.vcfBed = `${this.analysisFolder}/${VCF_APPLIED_BED}`;
       this.vcfFile = `${this.analysisFolder}/${VCF_FILE}`
       this.vcfModified = `${this.analysisFolder}/${VCF_MODIFIED_FILE}`;
+      this.vepOutput = `${this.CWD}/tmp/analysis_${analysis.id}/${VEP_OUTPUT}`;
 
       await this.preprocess();
 

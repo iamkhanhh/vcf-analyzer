@@ -3,20 +3,25 @@ import { ConfigService } from '@nestjs/config';
 import * as fs from 'fs';
 import * as es from 'event-stream';
 import { CommonService } from './common.service';
+import { spawn } from 'child_process';
 
 @Injectable()
 export class AnnovarService {
     private readonly logger = new Logger(AnnovarService.name)
 
     private s3Dir: string;
+    private vepDir: string;
     private fastaFile: string;
+    private vepCommand: string;
 
     constructor(
         private configService: ConfigService,
         private readonly commonService: CommonService
     ) {
         this.s3Dir = this.configService.get<string>('AWS_DIR');
+        this.vepDir = this.configService.get<string>('VEP_DIR');
         this.fastaFile = this.configService.get<string>('FASTA_FILE');
+        this.vepCommand = this.configService.get<string>('VEP_COMMAND');
     }
 
     async getRowCount(vcfFilePath: string) {
@@ -41,12 +46,74 @@ export class AnnovarService {
     // }
 
     async runVEP(input: string, output: string) {
-        let start = Date.now()
-
-        console.log('Run VEP: ' + start)
         this.logger.log(`Running VEP with input: ${input} and output: ${output}`);
 
-        console.log(`Vep completed. Duration: ${(Date.now() - start) / 1000} seconds.`)
+        let workerStatus = 'success';
+
+        this.logger.log('Run VEP')
+
+        let start = Date.now();
+
+        let command = this.vepCommand
+
+        let args = [
+            '-lh', '/Users/khanh/Documents/TLU/a45081/genetics-s3-prod/user_files/1/5'
+            // '-i', `${input}`,
+            // '-o', `${output}`,
+            // '--offline',
+            // '--species', 'homo_sapiens',
+            // '--force_overwrite',
+            // '--assembly', 'GRCh37',
+            // '--fasta', `${this.vepDir}/homo_sapiens/101_GRCh37/Homo_sapiens.GRCh37.75.dna.primary_assembly.fa.gz`,
+            // '--everything', '--hgvs', '--merged',
+            // '--plugin', `CADD,${this.vepDir}/Plugins/CADD/whole_genome_SNVs.tsv.gz,${this.vepDir}/Plugins/CADD/InDels.tsv.gz`,
+            // '--canonical', '--pubmed', '--total_length', '--number', '--stats_text', '--fork', '4', '--exclude_predicted',
+            // '-custom', `${this.vepDir}/Plugins/CLINVAR/clinvar_20181028_a.vcf.gz,Clinvar,vcf,exact,0,VARIANT_ID`,
+            // '-custom', `${this.vepDir}/Plugins/gnomAD/gnomad.genomes.r2.1.sites.vcf.gz,gnomADg,vcf,exact,0,AF,AF_afr,AF_amr,AF_asj,AF_eas,AF_fin,AF_nfe,AF_oth`,
+            // '-custom', `${this.vepDir}/Plugins/ExAC/ExAC.r1.sites.vep.vcf.gz,ExAC,vcf,exact,0,AC,AC_Adj,AC_AFR,AC_AMR,AC_EAS,AC_FIN,AC_NFE,AN_Adj,AC_OTH,AC_SAS,AF,AN,AN_AFR,AN_AMR,AN_EAS,AN_FIN,AN_NFE,AN_OTH,AN_SAS`,
+            // '-custom', `${this.vepDir}/Plugins/gnomAD/gnomad.exomes.r2.1.sites.vcf.gz,gnomADe,vcf,exact,0,AF,AF_afr,AF_amr,AF_asj,AF_eas,AF_fin,AF_nfe,AF_oth,AF_sas`,
+            // '-custom', `${this.vepDir}/Plugins/Mastermind/mastermind.vcf.gz,masterMind,vcf,exact,0,GENE,MMCNT3,MMID3`,
+            // '-custom', `${this.vepDir}/Plugins/VariantScore/gnomad_e_xgb_scores_sorted.vcf.gz,variantScore,vcf,exact,0,VAR_GENE,VAR_SCORE`,
+            // '-custom', `${this.vepDir}/Plugins/dbsnp/dbsnp-153.vcf.gz,dbSNP,vcf,exact,0,RS`,
+            // '-custom', `${this.vepDir}/Plugins/gnomAD/gnomad.genomes.v3.1.sites.chrM.vcf.gz,gnomMT,vcf,exact,0,AC,AF_hom,AF_het,AN,pop_AF_hom,pop_AF_het`
+        ]
+
+        this.logger.log(args);
+
+        return new Promise((resolve, reject) => {
+            let worker = spawn(command, args)
+
+            worker.stdout.on('data', (data) => {
+                this.logger.log(`stdout: ${data}`)
+            })
+
+            worker.stderr.on('data', (data) => {
+                this.logger.log(`data: ${data}`)
+
+                if (data.includes('EXCEPTION') || data.includes('ERROR')) {
+                    workerStatus = 'error'
+                }
+            });
+
+            worker.on('error', (data) => {
+                this.logger.error(`worker error: ${data}`)
+                workerStatus = 'error'
+                return reject();
+            })
+
+            worker.on('close', (code) => {
+                if (workerStatus == 'success') {
+                    this.logger.log(`Vep completed. Duration: ${(Date.now() - start) / 1000} seconds.`)
+                    if (fs.existsSync(output)) {
+                        return resolve(output);
+                    } else {
+                        return reject();
+                    }
+                } else {
+                    return reject();
+                }
+            });
+        })
     }
 
     async validateVcf(vcfFile: string) {
