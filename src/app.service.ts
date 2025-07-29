@@ -87,7 +87,9 @@ export class AppService {
 
       await this.prepareFile();
 
-      await this.annovarService.runVEP(this.vcfFile, this.vepOutput)
+      await this.annovarService.runVEP(this.vcfFile, this.vepOutput);
+
+      await this.annovarService.matchHGNC(this.vepOutput);
 
       // Run VCF analysis
       await this.vcfService.run(analysis, this.vcfFile, this.vepOutput);

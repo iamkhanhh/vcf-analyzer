@@ -13,6 +13,7 @@ export class AnnovarService {
     private vepDir: string;
     private fastaFile: string;
     private vepCommand: string;
+    private dataFolder: string;
 
     constructor(
         private configService: ConfigService,
@@ -22,6 +23,7 @@ export class AnnovarService {
         this.vepDir = this.configService.get<string>('VEP_DIR');
         this.fastaFile = this.configService.get<string>('FASTA_FILE');
         this.vepCommand = this.configService.get<string>('VEP_COMMAND');
+        this.dataFolder = this.commonService.getDataFolder();
     }
 
     async getRowCount(vcfFilePath: string) {
@@ -205,5 +207,12 @@ export class AnnovarService {
         let command = `cd ${this.s3Dir} && awk -F"\t" 'BEGIN{OFS="\t"}{if (index($1, "#") == 1) { print } else { if ( $1 == 1 || $1 == 2 || $1 == 3 || $1 == 4 || $1 == 5 || $1 == 6 || $1 == 7 || $1 == 8 || $1 == 9 || $1 == 10 || $1 == 11 || $1 == 12 || $1 == 13 || $1 == 14 || $1 == 15 || $1 == 16 || $1 == 17 || $1 == 18 || $1 == 19 || $1 == 20 || $1 == 21 || $1 == 22 || $1 == "X" || $1 == "Y" || $1 == "MT" || $1 == "M") { split($5,a,","); col8 = $8; if($10=="./.:.:.:.:.") { $10=$11}; for (i in a){ $5=a[i]; $8=col8";VKEY="$1"_"$2"_"$4"_"a[i]";VARINDEX="i; print }  } } }' ${input} > ${output} && awk '!seen[$1$2$4$5]++' ${output} > ${input} && bgzip -c ${input} > ${output}.gz && tabix -f ${output}.gz`;
 
         return this.commonService.runCommand(command);
+    }
+
+    async matchHGNC(canonicalFile: string) {
+        this.logger.log(`Match HGNC with ${canonicalFile}`)
+        let command = `awk -F"\t" 'FNR==NR{HGNC[$1]="HGNC_SYMBOL="$3; if (length($6) > 0) { HGNC[$1] = HGNC[$1]";HGNC_PRE_SYMBOL="$6;} if (length($7) > 0) { HGNC[$1] = HGNC[$1]";HGNC_SYNONYMS="$7;} ;next}{if (index($0,"HGNC_ID") == 0) {print $0;} else {split($14, extra, ";");for (i in extra) {if ( index(extra[i], "HGNC_ID") == 1 ) {split(extra[i], hgnc_item, "=");if (length(HGNC[hgnc_item[2]]) != 0) {print $0";"HGNC[hgnc_item[2]]} else {print $0;}}}}}' ${this.dataFolder}/HGNC_Gene_Data.tsv ${canonicalFile} > ${canonicalFile}.hgnc && mv -f ${canonicalFile}.hgnc ${canonicalFile}`
+
+        return this.commonService.runCommand(command)
     }
 }

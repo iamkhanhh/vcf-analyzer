@@ -49,4 +49,12 @@ export class CommonService {
     getTmpFolder(analysis: AnalysisModel) {
         return `${this.CWD}/tmp/analysis_${analysis.id}`
     }
+
+    getCommandFolder() {
+        return `${this.CWD}/command`
+    }
+
+    getDataFolder() {
+        return `${this.CWD}/data`
+    }
 }
