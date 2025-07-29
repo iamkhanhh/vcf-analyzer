@@ -13,6 +13,8 @@ export class VcfService {
     private analysis: AnalysisModel;
     private analysisFolder: string;
     private tmpFolderFormat: string;
+    private commandFolder: string;
+    private dataFolder: string;
     private vcfFile;
     private canonicalFile: string;
     private firstLine: boolean = true;
@@ -48,7 +50,8 @@ export class VcfService {
         
         this.tmpFolderFormat = this.commonService.getTmpFolder(analysis);
         this.analysisFolder = this.commonService.getAnalysisFolder(analysis);
-        console.log(`Temporary folder: ${this.tmpFolderFormat}`);
+        this.commandFolder = this.commonService.getCommandFolder();
+        this.dataFolder = this.commonService.getDataFolder();
         
         this.analysisId = analysis.id;
         this.vcfFile = `${this.s3Dir}/${vcfFile}`;
@@ -76,8 +79,8 @@ export class VcfService {
 
     async addTranscriptLength (originAnnoFile: string) {
         this.logger.log(`Adding transcript length to VCF file: ${originAnnoFile}`);
-        // let transcriptCommand = `/home/dev/genomics-annovar/command/anno.sh ${originAnnoFile} ${this.analysisId} ${this.vcfTranscriptFile}`
-        // await this.commonService.runCommand(transcriptCommand);
+        let transcriptCommand = `${this.commandFolder}/add_transcript_length.sh ${originAnnoFile} ${this.dataFolder} ${this.tmpFolderFormat} ${this.vcfTranscriptFile}`
+        await this.commonService.runCommand(transcriptCommand);
     }
 
     async readVcf() {
