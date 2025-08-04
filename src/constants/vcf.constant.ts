@@ -121,7 +121,6 @@ export const VARIANT_ONTOLOGY = [
     ["synonymous_variant", "Synonymous", "exonic"],
     ["synonymous_variant,NMD_transcript_variant", "Synonymous, NMD", "exonic, upstream"],
     ["upstream_gene_variant", "Upstream", "upstream"],
-
     ["coding_sequence_variant,5_prime_UTR_variant,NMD_transcript_variant", "Coding, 5' UTR, NMD", "exonic, UTR3"],
     ["coding_sequence_variant,intron_variant", "Coding, Intron", "exonic, intronic"],
     ["coding_sequence_variant,NMD_transcript_variant", "Coding, NMD", "exonic"],
@@ -169,7 +168,6 @@ export const VARIANT_ONTOLOGY = [
     ["stop_lost,splice_region_variant", "Stop lost, Splice region", "exonic, splicing"],
     ["stop_retained_variant,3_prime_UTR_variant,NMD_transcript_variant", "Stop retained, 3' UTR, NMD", "exonic, UTR3"],
     ["transcript_ablation", "Transcript ablation", "upstream"],
-
     ["splice_donor_variant, intron_variant", "Splice donor, Intron", "splicing, intronic"],
     ["splice_acceptor_variant,intron_variant", "Splice acceptor, Intron", "splicing, intronic"]
 ]
