@@ -9,6 +9,7 @@ import { GlobalService } from './services/global.service';
 import { ScheduleModule } from '@nestjs/schedule';
 import { HttpModule } from '@nestjs/axios';
 import { CommunicationService } from './services/communication.service';
+import { CalculateService } from './services/calculate.service';
 
 @Module({
   imports: [
@@ -19,6 +20,6 @@ import { CommunicationService } from './services/communication.service';
     HttpModule
   ],
   controllers: [AppController],
-  providers: [AppService, AnnovarService, VcfService, CommonService, GlobalService, CommunicationService],
+  providers: [AppService, AnnovarService, VcfService, CommonService, GlobalService, CommunicationService, CalculateService],
 })
 export class AppModule {}
