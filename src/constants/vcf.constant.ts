@@ -20,9 +20,9 @@ export const VCF_HGMD = 'vep.hgmd.vcf'
 export const VCF_HGMD_CLINVAR = 'vep.hgmd.clinvar.vcf'
 export const VCF_TRANSCRIPT_FILE = 'vep.transcript_length.anno'
 export const ORIGIN_VEP_FILE = 'vep.transcript.anno'
-export const ANNO_FILE = 'vep.clinvar.anno'
-export const ANNO_CLINVAR_FILE = 'vep.anno'
-export const ANNO_VEP_FILE = 'vep.run.anno'
+export const ANNO_CLINVAR_FILE = 'vep.clinvar.anno'
+export const ANNO_FILE = 'vep.anno'
+export const ANNO_VEP_FILE = 'vep.final.anno'
 export const AF_VCF_FILE = 'vep.af.vcf'
 
 // Commands
