@@ -58,7 +58,7 @@ export class AppService {
 
       await this.analyze(pendingAnalysis);
 
-      await this.communicationService.updateAnalysisStatus(pendingAnalysis.id, AnalysisStatus.ANALYZED);
+      await this.communicationService.updateAnalysisStatus(pendingAnalysis.id, AnalysisStatus.VEP_ANALYZED);
 
       return this.globalService.isAnalyzing = false;
 

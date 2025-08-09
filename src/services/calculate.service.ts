@@ -908,11 +908,7 @@ export class CalculateService {
         return cosmicIds
     }
 
-    getRsID(vcfRSID, vepRSID) {
-        // if (vcfRSID != '.') {
-        //     return vcfRSID;
-        // }
-
+    getRsID(vepRSID) {
         var rsIdArray = vepRSID.split(',');
         for (var i in rsIdArray) {
             var rsId = rsIdArray[i]
@@ -1076,7 +1072,7 @@ export class CalculateService {
      * Calculate CLINSIG_PRIORITY, CLINSIG_FINAL
      * @return {object}
      */
-    calculateClinsigFinal(CLINSIG, alleleFrequencyData, codingEffect, gene, CLINSIG_ID, HGMD, BTG_CLINSIG) {
+    calculateClinsigFinal(CLINSIG, alleleFrequencyData, codingEffect, gene, BTG_CLINSIG) {
         let CLINSIG_FINAL
         let CLINSIG_PRIORITY
         let hasClinicalSynopsis = 0
@@ -1214,24 +1210,6 @@ export class CalculateService {
                 lossOfFunction: lossOfFunction
             }
         }
-
-
-        // Gnomad > 0.05
-        // if (this.isBenignA(alleleFrequencyData)) {
-        //     CLINSIG_FINAL = 'benign'
-        //     CLINSIG_PRIORITY = 5
-        //     if (this.isLossOfFunctionMutation(codingEffect)) {
-        //         lossOfFunction = 1
-        //     }
-
-        //     return {
-        //         CLINSIG_FINAL: CLINSIG_FINAL,
-        //         CLINSIG_PRIORITY: CLINSIG_PRIORITY,
-        //         hasClinicalSynopsis: hasClinicalSynopsis,
-        //         lossOfFunction: lossOfFunction,
-        //         curation: 'Curated'
-        //     }
-        // }
 
         // Check Drug response
         if (this.isDrugResponseGoldStar(CLINSIG) && GoldStars >= 2) {

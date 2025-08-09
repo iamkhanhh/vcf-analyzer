@@ -86,7 +86,7 @@ export class VcfService {
         await this.classifyVariant();
 
         // Upload files to s3
-        // await this.uploadFiles();
+        await this.uploadFiles();
     }
 
     async addTranscriptLength(originAnnoFile: string) {
@@ -192,10 +192,99 @@ export class VcfService {
 
     async classifyVariant() {
         this.logger.log(`Classifying variants`);
+        return new Promise((resolve, reject) => {
+            let lineIndex = null;
+            this.classifyStream = fs.createReadStream(this.vcfHgmdClinvarFile)
+                .pipe(es.split())
+                .pipe(es.mapSync((line) => {
+                    this.classifyStream.pause();
+                    let lineData = line.split('\t');
+
+                    if (lineIndex == null) {
+                        this.classifyStream.headings = line.split('\t');
+                        lineIndex = 0;
+                        fs.appendFileSync(this.annoVepFile, line + '\n');
+                    } else if (lineData.length > 5) {
+                        let CLINSIG = this.calculateService.formatCLINSIG(lineData[this.classifyStream.headings.indexOf('CLINSIG')]);
+                        let codingEffect = lineData[this.classifyStream.headings.indexOf('codingEffect')];
+                        let gene = lineData[this.classifyStream.headings.indexOf('gene')];
+                        let CLNSIG_ID = lineData[this.classifyStream.headings.indexOf('CLNACC')];
+                        let BTG_CLINSIG = lineData[this.classifyStream.headings.indexOf('CLNSIG_BTG')]
+                        let BTG_Concensus = lineData[this.classifyStream.headings.indexOf('BTG_Concensus')];
+                        let GoldStars = lineData[this.classifyStream.headings.indexOf('gold_stars')];
+                        let VAR_SCORE = lineData[this.classifyStream.headings.indexOf('VAR_SCORE')];
+                        let Curation = lineData[this.classifyStream.headings.indexOf('curation')];
+
+                        let alleleFrequencyData = {
+                            BTG_Concensus: BTG_Concensus,
+                            GoldStars: GoldStars != '.' ? parseInt(GoldStars) : 0,
+                            VAR_SCORE: GoldStars != '.' ? parseFloat(VAR_SCORE) : 0,
+                            Curation: Curation != '.' ? Curation : '.',
+                            AF: lineData[this.classifyStream.headings.indexOf('alleleFrequency')],
+                            gnomAD_exome_ALL: lineData[this.classifyStream.headings.indexOf('gnomAD_exome_ALL')],
+                            gnomAD_exome_AFR: lineData[this.classifyStream.headings.indexOf('gnomAD_exome_AFR')],
+                            gnomAD_exome_AMR: lineData[this.classifyStream.headings.indexOf('gnomAD_exome_AMR')],
+                            gnomAD_exome_ASJ: lineData[this.classifyStream.headings.indexOf('gnomAD_exome_ASJ')],
+                            gnomAD_exome_EAS: lineData[this.classifyStream.headings.indexOf('gnomAD_exome_EAS')],
+                            gnomAD_exome_FIN: lineData[this.classifyStream.headings.indexOf('gnomAD_exome_FIN')],
+                            gnomAD_exome_NFE: lineData[this.classifyStream.headings.indexOf('gnomAD_exome_NFE')],
+                            gnomAD_exome_OTH: lineData[this.classifyStream.headings.indexOf('gnomAD_exome_OTH')],
+                            gnomAD_exome_SAS: lineData[this.classifyStream.headings.indexOf('gnomAD_exome_SAS')],
+                            ExAC_ALL: lineData[this.classifyStream.headings.indexOf('ExAC_ALL')],
+                            ExAC_AFR: lineData[this.classifyStream.headings.indexOf('ExAC_AFR')],
+                            ExAC_AMR: lineData[this.classifyStream.headings.indexOf('ExAC_AMR')],
+                            ExAC_EAS: lineData[this.classifyStream.headings.indexOf('ExAC_EAS')],
+                            ExAC_FIN: lineData[this.classifyStream.headings.indexOf('ExAC_FIN')],
+                            ExAC_NFE: lineData[this.classifyStream.headings.indexOf('ExAC_NFE')],
+                            ExAC_OTH: lineData[this.classifyStream.headings.indexOf('ExAC_OTH')],
+                            ExAC_SAS: lineData[this.classifyStream.headings.indexOf('ExAC_SAS')],
+                            AF_1000g: lineData[this.classifyStream.headings.indexOf('AF')],
+                            EAS_AF_1000g: lineData[this.classifyStream.headings.indexOf('1000g_EAS_AF')],
+                            AMR_AF_1000g: lineData[this.classifyStream.headings.indexOf('1000g_AMR_AF')],
+                            AFR_AF_1000g: lineData[this.classifyStream.headings.indexOf('1000g_AFR_AF')],
+                            EUR_AF_1000g: lineData[this.classifyStream.headings.indexOf('1000g_EUR_AF')],
+                            SAS_AF_1000g: lineData[this.classifyStream.headings.indexOf('1000g_SAS_AF')],
+                            varLocation: lineData[this.classifyStream.headings.indexOf('varLocation')],
+                        };
+
+                        let classificationData = this.calculateService.calculateClinsigFinal(CLINSIG, alleleFrequencyData, codingEffect, gene, BTG_CLINSIG);
+
+                        lineData[this.classifyStream.headings.indexOf('CLINSIG_PRIORITY')] = classificationData.CLINSIG_PRIORITY;
+                        lineData[this.classifyStream.headings.indexOf('CLINSIG_FINAL')] = classificationData.CLINSIG_FINAL;
+                        lineData[this.classifyStream.headings.indexOf('hasClinicalSynopsis')] = classificationData.hasClinicalSynopsis;
+                        lineData[this.classifyStream.headings.indexOf('lossOfFunction')] = classificationData.lossOfFunction;
+                        lineData[this.classifyStream.headings.indexOf('CLINSIG')] = CLINSIG;
+                        lineData[this.classifyStream.headings.indexOf('CLINVAR_CLNSIG')] = CLINSIG;
+                        lineData[this.classifyStream.headings.indexOf('Clinvar_VARIANT_ID')] = CLNSIG_ID;
+
+                        // if (classificationData.curation == 'Curated') {
+                        //     lineData[this.classifyStream.headings.indexOf('curation')] = 'Curated ';
+                        // }
+
+                        fs.appendFileSync(this.annoVepFile, lineData.join('\t') + '\n');
+                    }
+
+                    this.classifyStream.resume();
+                }))
+                .on('error', (error) => {
+                    this.classifyStream.hasError = true;
+                    this.logger.error('classifyVariant error', error);
+                    this.classifyStream.destroy();
+                })
+                .on('close', () => {
+                    if (this.classifyStream.hasError) {
+                        return reject(false);
+                    } else {
+                        this.logger.log('Classify Variant completed');
+                        return resolve(true);
+                    }
+                })
+        })
     }
 
     async uploadFiles() {
         let commands = [
+            `cd ${this.s3Dir}`,
             `cp ${this.annoVepFile} ${this.analysisFolder}/${RESULT_ANNO_FILE}`,
             `cp ${this.canonicalFile} ${this.analysisFolder}/${RESULT_CANONICAL_FILE}`
         ]
@@ -228,7 +317,6 @@ export class VcfService {
                 result.MT = geneTranscipt;
             }
 
-            result.MQ = this.calculateService.getExtraData2('MQ', data[infoIndex]) ? this.calculateService.getExtraData2('MQ', data[infoIndex]) : 0
             result.ALT = data[altIndex].split(',');
             result.chrom = data[chromIndex];
             result.inputPos = data[inputPosIndex];
@@ -864,7 +952,7 @@ export class VcfService {
 
         let rsId = this.calculateService.formatData(this.calculateService.getExtraData('dbSNP_RS', extraData, this.annoStream.headings));
         rsId = rsId != '.' ? ('rs' + rsId) : '.';
-        let rsIdVep = this.calculateService.formatData(this.calculateService.getRsID(lineData[this.annoStream.headings.indexOf('#Uploaded_variation')], lineData[this.annoStream.headings.indexOf('Existing_variation')]));
+        let rsIdVep = this.calculateService.formatData(this.calculateService.getRsID(lineData[this.annoStream.headings.indexOf('Existing_variation')]));
         rsId = rsId != '.' ? rsId : rsIdVep;
 
         if (VAR_GENE != '.') {
@@ -951,15 +1039,15 @@ export class VcfService {
             this.calculateService.formatData(this.calculateService.getExtraData('MOTIF_SCORE_CHANGE', extraData, this.annoStream.headings)),   //  MOTIF_SCORE_CHANGE
             this.calculateService.formatData(this.calculateService.getExtraData('CADD_PHRED', extraData, this.annoStream.headings)),           //  CADD_PHRED
             this.calculateService.formatData(this.calculateService.getExtraData('CADD_RAW', extraData, this.annoStream.headings)),             //  CADD_RAW
-            this.calculateService.formatData(this.calculateService.getExtraData('CANONICAL', extraData, this.annoStream.headings)),             //  CANONICAL
+            this.calculateService.formatData(this.calculateService.getExtraData('CANONICAL', extraData, this.annoStream.headings)),            //  CANONICAL
             '.',                                                                //  CLINSIG_PRIORITY
             '.',                                                                //  CLINSIG_FINAL
             '.',                                                                //  hasClinicalSynopsis
             '.',                                                                //  lossOfFunction
-            vcfExtraData.inputPos,                                             //  inputPosInt
+            vcfExtraData.inputPos,                                              //  inputPosInt
             this.calculateService.getGnomAD(alleleFrequencyData.gnomAD_exome_ALL, alleleFrequencyData.gnomAD_genome_ALL),  //  gnomAD_exome_ALL_Int
-            this.calculateService.getGnomAD(alleleFrequencyData.gnomAD_exome_AFR, alleleFrequencyData.gnomAD_genome_AFR),//  gnomAD_exome_AFR_Int
-            this.calculateService.getGnomAD(alleleFrequencyData.gnomAD_exome_AMR, alleleFrequencyData.gnomAD_genome_AMR), //  gnomAD_exome_AMR_Int
+            this.calculateService.getGnomAD(alleleFrequencyData.gnomAD_exome_AFR, alleleFrequencyData.gnomAD_genome_AFR),  //  gnomAD_exome_AFR_Int
+            this.calculateService.getGnomAD(alleleFrequencyData.gnomAD_exome_AMR, alleleFrequencyData.gnomAD_genome_AMR),  //  gnomAD_exome_AMR_Int
             CDS_position,                                                        //  CDS_position
             selectedGene,                                                        // selected_gene
             HGNC_SYMONYMS,                                                       // HGNC_SYMONYMS

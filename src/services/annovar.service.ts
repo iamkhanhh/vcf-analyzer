@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as fs from 'fs';
 import * as es from 'event-stream';
+import * as path from 'path';
 import { CommonService } from './common.service';
 import { spawn } from 'child_process';
 
@@ -56,14 +57,21 @@ export class AnnovarService {
 
         let start = Date.now();
 
-        let command = this.vepCommand
+        const outputDir = path.dirname(output);
+        if (!fs.existsSync(outputDir)) {
+            fs.mkdirSync(outputDir, { recursive: true });
+            this.logger.log(`Created directory: ${outputDir}`);
+        }
+
+        // let command = this.vepCommand
+        let command = `cp`
 
         let args = [
-            '-lh', '/Users/khanh/Documents/TLU/a45081/genetics-s3-prod/user_files/1/5'
+            '/Users/khanh/Downloads/vep.canonical', output
             // '-i', `${input}`,
             // '-o', `${output}`,
             // '--offline',
-            // '--species', 'homo_sapiens',
+            // '--species', 'homo_sapiens', '--vcf',
             // '--force_overwrite',
             // '--assembly', 'GRCh37',
             // '--fasta', `${this.vepDir}/homo_sapiens/101_GRCh37/Homo_sapiens.GRCh37.75.dna.primary_assembly.fa.gz`,
