@@ -43,6 +43,8 @@ export class AnalysisModel {
 
     assembly: string;
 
+    sequencing_type: string;
+
     upload: UploadModel;
 
     createdAt: Date;

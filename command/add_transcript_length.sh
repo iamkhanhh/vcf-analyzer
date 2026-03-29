@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 # *******************************************
 # INPUT: Canonical file
 # *******************************************
@@ -17,14 +18,13 @@ HGNC_FILE=$data_folder'/HGNC_JUL062023.tsv'
 
 # Log file
 mkdir -p $workdir
-# rm -rf $workdir/*
 cd $workdir
 # Clean workdir but keep canonical file
 basename_canonical=$(basename "$canonical")
-find "$workdir" -mindepth 1 ! -name "$basename_canonical" -exec rm -rf {} +
+find "$workdir" -mindepth 1 ! -name "$basename_canonical" -delete 2>/dev/null || true
 
 logfile=$workdir/run.log
-exec >$logfile 2>&1
+exec > >(tee -a "$logfile") 2>&1
 
 less $canonical | grep -v "#" | awk -F"\t" '{split($8, a, "CSQ="); print $1"\t"$2"\t"$4"\t"$5"\t"a[2]}'  | awk -F"\t" 'BEGIN{OFS="\t"}{ split($5,a,","); col5 = $5; for (i in a){ $5=a[i]; print }}' | awk -F"\t" 'BEGIN{OFS="\t"}{split($5,a,"|"); col5= ""; for (i=1; i<=length(a); i++) {if(a[i] == ""){ a[i]="." };col5=col5"\t"a[i]}; print $1"\t"$2"\t"$3"\t"$4""col5}' > canonical.tsv
 

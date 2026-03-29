@@ -105,6 +105,11 @@ export class VcfService {
                     this.vcfStream.pause();
 
                     if (this.lineIndex != null) {
+                        if (!line) {
+                            this.vcfStream.resume();
+                            return;
+                        }
+
                         this.lineIndex++;
 
                         this.vcfStream.extraData = this.analyzeLine(line);
@@ -151,7 +156,7 @@ export class VcfService {
                             let compressedFileDist = this.vcfFile + '.gz';
                             let tabixFileDist = this.vcfFile + '.gz.tbi';
 
-                            tabixComand = `bgzip -f ${this.AfVcfFile} && tabix -f ${compressedFile} && rm -rf ${compressedFileDist} ${tabixFileDist} && mv -f ${compressedFile} ${compressedFileDist} && mv -f ${tabixFile} ${tabixFileDist} && `
+                            tabixComand = `{ grep "^#" ${this.AfVcfFile}; grep -v "^#" ${this.AfVcfFile} | sort -k1,1 -k2,2n; } > ${this.AfVcfFile}_sorted && mv -f ${this.AfVcfFile}_sorted ${this.AfVcfFile} && bgzip -f ${this.AfVcfFile} && tabix -f ${compressedFile} && rm -rf ${compressedFileDist} ${tabixFileDist} && mv -f ${compressedFile} ${compressedFileDist} && mv -f ${tabixFile} ${tabixFileDist} && `
                         }
 
                         let clearRefAlt = `awk -F"\t" 'BEGIN{OFS="\t"}{ref = $7;alt = $8; chrom = $5; pos = $6; gene = $16; if(index($0, "analysisId") == 1) { print $0;} else if (length(ref) == 1 || length(alt) == 1) { $83=chrom"_"pos"_"ref"_"alt"_"gene; print $0;} else if (substr(ref,length(ref),1) != substr(alt,length(alt),1)) {$83=chrom"_"pos"_"ref"_"alt"_"gene; print $0;} else {while (length(ref) != 1 && length(alt) != 1 && substr(ref,length(ref),1) == substr(alt,length(alt),1)) {ref = substr(ref, 1, length(ref)-1);alt = substr(alt, 1, length(alt)-1);}$83=chrom"_"pos"_"ref"_"alt"_"gene; print $0;}}' ${this.annoFile} >  ${this.annoFile}_temp && mv -f ${this.annoFile}_temp ${this.annoFile} && `
@@ -931,13 +936,27 @@ export class VcfService {
         let SIFT_number = '.';
 
         if (SIFT_score != '.') {
-            SIFT_number = SIFT_score.split('(')[1].split(')')[0];
+            try {
+                const siftParts = SIFT_score.split('(');
+                if (siftParts.length > 1) {
+                    SIFT_number = siftParts[1].split(')')[0];
+                }
+            } catch (error) {
+                console.error('Error parsing SIFT score:', error);
+            }
         }
 
         let PolyPhen_number = '.';
 
         if (PolyPhen_score != '.') {
-            PolyPhen_number = PolyPhen_score.split('(')[1].split(')')[0];
+            try {
+                const polyPhenParts = PolyPhen_score.split('(');
+                if (polyPhenParts.length > 1) {
+                    PolyPhen_number = polyPhenParts[1].split(')')[0];
+                }
+            } catch (error) {
+                console.error('Error parsing PolyPhen score:', error);
+            }
         }
 
         let HGNC_SYMONYMS = this.calculateService.formatData(this.calculateService.getExtraData('HGNC_SYNONYMS', extraData, this.annoStream.headings));

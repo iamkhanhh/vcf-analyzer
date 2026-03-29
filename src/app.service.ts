@@ -5,7 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { AnalysisModel, AnalysisStatus } from './models/analysis.model';
 import * as fs from 'fs'
-import { INTERSECT_BED_CMD, VCF_APPLIED_BED, VCF_BGZIP_CMD, VCF_FILE, VCF_MODIFIED_FILE, VCF_ORIGINAL_FILE, VCF_ORIGINAL_ZIP_FILE, VCF_SORT_CMD, VCF_TABIX_CMD, VCF_ZIP_FILE, VEP_OUTPUT } from './constants';
+import { INTERSECT_BED_CMD, RESULT_ANNO_FILE, VCF_APPLIED_BED, VCF_BGZIP_CMD, VCF_FILE, VCF_MODIFIED_FILE, VCF_ORIGINAL_FILE, VCF_ORIGINAL_ZIP_FILE, VCF_SORT_CMD, VCF_TABIX_CMD, VCF_ZIP_FILE, VEP_OUTPUT } from './constants';
 
 @Injectable()
 export class AppService {
@@ -13,12 +13,16 @@ export class AppService {
 
   private analysisFolder: string;
   private defaultBedFile: string;
+  private wesHg19BedFile: string;
+  private wesHg38BedFile: string;
   private s3Dir: string;
   private vcfModified: string;
   private vcfOriginal: string;
   private vcfBed: string;
   private vcfFile: string;
   private vepOutput: string;
+  private dataFolder: string;
+  private pharmaGkbFile: string;
   private analysis: AnalysisModel;
   private isGZ: boolean = false;
   private CWD = process.cwd();
@@ -32,10 +36,14 @@ export class AppService {
     private readonly vcfService: VcfService
   ) {
     this.defaultBedFile = this.configService.get<string>('DEFAULT_BED');
+    this.wesHg19BedFile = this.configService.get<string>('WES_HG19_BED');
+    this.wesHg38BedFile = this.configService.get<string>('WES_HG38_BED');
     this.s3Dir = this.configService.get<string>('AWS_DIR');
+    this.dataFolder = this.commonService.getDataFolder();
+    this.pharmaGkbFile = "PharmaGKB.tsv";
   }
 
-  @Cron(CronExpression.EVERY_30_SECONDS)
+  // @Cron(CronExpression.EVERY_30_SECONDS)
   async vcf_analyzer() {
     let pendingAnalysis;
     try {
@@ -87,12 +95,15 @@ export class AppService {
 
       await this.prepareFile();
 
-      await this.annovarService.runVEP(this.vcfFile, this.vepOutput);
+      await this.annovarService.runVEP(this.vcfFile, this.vepOutput, this.analysis.assembly);
 
       await this.annovarService.matchHGNC(this.vepOutput);
 
       // Run VCF analysis
       await this.vcfService.run(analysis, this.vcfFile, this.vepOutput);
+
+      // PGx report
+      await this.addPGxReport();
 
       this.logger.log('Done Analysis')
     } catch (error) {
@@ -147,8 +158,16 @@ export class AppService {
 
     console.log(`Row count in VCF file: ${count}`);
 
+    let bedFile = this.defaultBedFile;
+
+    if (this.analysis.assembly == 'hg19' && this.analysis.sequencing_type == 'WES') {
+      bedFile = this.wesHg19BedFile;
+    } else if (this.analysis.assembly == 'hg38' && this.analysis.sequencing_type == 'WES') {
+      bedFile = this.wesHg38BedFile;
+    }
+
     let options = [
-      `-b ${this.defaultBedFile}`,
+      `-b ${bedFile}`,
       `-a ${this.isGZ ? `${this.vcfFile}.gz` : this.vcfFile}`
     ];
 
@@ -239,6 +258,34 @@ export class AppService {
     let command = commands.join(' && ');
 
     await this.commonService.runCommand(command);
+  }
+
+  async addPGxReport() {
+    this.logger.log('Adding PGx report to analysis result');
+
+    const pgxSource = `${this.dataFolder}/${this.pharmaGkbFile}`
+
+    const annoFile = `${this.s3Dir}/${this.analysisFolder}/${RESULT_ANNO_FILE}`;
+
+    let command = `awk -F"\t" 'FNR==NR{a[$1]=1; next}{ if ($1 == "analysisId") { print $0"\tPGx"; } else { PGx = "."; if (a[$9] == 1) { PGx = 1; } print $0"\t"PGx; } }' ${pgxSource} ${annoFile} > ${annoFile}.pgx && mv ${annoFile}.pgx ${annoFile} `;
+
+    await this.commonService.runCommand(command);
+  }
+
+  async triggerAnalysis(analysis: AnalysisModel): Promise<void> {
+    if (this.globalService.isAnalyzing) {
+      this.logger.warn(`Trigger ignored: analysis ${analysis.id} submitted while another is running`);
+      return;
+    }
+    this.globalService.isAnalyzing = true;
+    this.logger.log(`Manual trigger for analysis ID: ${analysis.id}`);
+    try {
+      await this.analyze(analysis);
+    } catch (error) {
+      this.logger.error(`triggerAnalysis failed for ID ${analysis.id}`, error);
+    } finally {
+      this.globalService.isAnalyzing = false;
+    }
   }
 
   getHello(): string {
