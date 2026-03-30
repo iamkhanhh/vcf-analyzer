@@ -15,6 +15,7 @@ import { CalculateService } from './services/calculate.service';
   imports: [
     ConfigModule.forRoot({ 
       isGlobal: true,
+      expandVariables: true,
     }),
     ScheduleModule.forRoot(),
     HttpModule

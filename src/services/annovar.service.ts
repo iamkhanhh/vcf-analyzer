@@ -12,7 +12,6 @@ export class AnnovarService {
 
     private s3Dir: string;
     private vepDir: string;
-    private fastaFile: string;
     private vepCommand: string;
     private dataFolder: string;
 
@@ -22,7 +21,6 @@ export class AnnovarService {
     ) {
         this.s3Dir = this.configService.get<string>('AWS_DIR');
         this.vepDir = this.configService.get<string>('VEP_DIR');
-        this.fastaFile = this.configService.get<string>('FASTA_FILE');
         this.vepCommand = this.configService.get<string>('VEP_COMMAND');
         this.dataFolder = this.commonService.getDataFolder();
     }
