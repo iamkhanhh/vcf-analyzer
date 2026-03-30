@@ -135,14 +135,16 @@ export class AppService {
     this.logger.log('Format VCF file');
 
     let zipFileCommand = 'ls';
+    let lessCommand = 'less';
 
     if (this.isGZ) {
+      lessCommand = 'zless';
       zipFileCommand = `bgzip -c ${this.vcfFile} > ${this.vcfFile}.gz`;
     }
 
     let commands = [
       `cd ${this.s3Dir}`,
-      `less ${this.vcfOriginal} | awk 'BEGIN{OFS="\t"} { if(index($0, "#") == 1) {print $0;} else { if( $9== "GT:GQ:AD:DP:VF:NL:SB:NC:US") {} else { split($1,a,"chr"); if(a[2] != NULL ) { $1 = a[2];}; print $0;} } }' > ${this.vcfFile}`,
+      `${lessCommand} ${this.vcfOriginal} | awk 'BEGIN{OFS="\t"} { if(index($0, "#") == 1) {print $0;} else { if( $9== "GT:GQ:AD:DP:VF:NL:SB:NC:US") {} else { split($1,a,"chr"); if(a[2] != NULL ) { $1 = a[2];}; print $0;} } }' > ${this.vcfFile}`,
       zipFileCommand
     ]
 

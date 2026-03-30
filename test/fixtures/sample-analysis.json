@@ -19,7 +19,7 @@
   "is_deleted": 0,
   "pipeline_id": 2,
   "upload_id": 15,
-  "assembly": "hg38",
+  "assembly": "hg19",
   "upload": {
     "id": 16,
     "createdAt": "2025-02-28T02:52:58.000Z",

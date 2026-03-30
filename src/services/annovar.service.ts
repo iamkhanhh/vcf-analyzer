@@ -74,10 +74,13 @@ export class AnnovarService {
                 '--species', 'homo_sapiens', '--vcf',
                 '--force_overwrite',
                 '--assembly', 'GRCh37',
-                '--fasta', `${this.vepDir}/homo_sapiens/101_GRCh37/Homo_sapiens.GRCh37.75.dna.primary_assembly.fa.gz`,
+                '--fasta', `${this.s3Dir}/fasta_files/hg19.fa.gz`,
                 '--everything', '--hgvs', '--merged',
-                '--plugin', `CADD,${this.vepDir}/Plugins/CADD/whole_genome_SNVs.tsv.gz,${this.vepDir}/Plugins/CADD/InDels.tsv.gz`,
                 '--canonical', '--pubmed', '--total_length', '--number', '--stats_text', '--fork', '4', '--exclude_predicted',
+                '--plugin', `CADD,${this.vepDir}/Plugins/CADD/whole_genome_SNVs.tsv.gz,${this.vepDir}/Plugins/CADD/InDels.tsv.gz`,
+                '--plugin', `REVEL,file=${this.vepDir}/.vep/Plugins/REVEL_AlphaMissense_SpliceAI/new_tabbed_revel.tsv.gz,no_match=1`, 
+                '--plugin', `AlphaMissense,file=${this.vepDir}/.vep/Plugins/REVEL_AlphaMissense_SpliceAI/AlphaMissense_hg19.tsv.gz`, 
+                '--plugin', `SpliceAI,snv=${this.vepDir}/.vep/Plugins/REVEL_AlphaMissense_SpliceAI/spliceai_scores.masked.snv.hg19.vcf.gz,indel=${this.vepDir}/.vep/Plugins/REVEL_AlphaMissense_SpliceAI/spliceai_scores.masked.indel.hg19.vcf.gz`,
                 '-custom', `${this.vepDir}/Plugins/CLINVAR/clinvar_20181028_a.vcf.gz,Clinvar,vcf,exact,0,VARIANT_ID`,
                 '-custom', `${this.vepDir}/Plugins/gnomAD/gnomad.genomes.r2.1.sites.vcf.gz,gnomADg,vcf,exact,0,AF,AF_afr,AF_amr,AF_asj,AF_eas,AF_fin,AF_nfe,AF_oth`,
                 '-custom', `${this.vepDir}/Plugins/ExAC/ExAC.r1.sites.vep.vcf.gz,ExAC,vcf,exact,0,AC,AC_Adj,AC_AFR,AC_AMR,AC_EAS,AC_FIN,AC_NFE,AN_Adj,AC_OTH,AC_SAS,AF,AN,AN_AFR,AN_AMR,AN_EAS,AN_FIN,AN_NFE,AN_OTH,AN_SAS`,
@@ -85,7 +88,8 @@ export class AnnovarService {
                 '-custom', `${this.vepDir}/Plugins/Mastermind/mastermind.vcf.gz,masterMind,vcf,exact,0,GENE,MMCNT3,MMID3`,
                 '-custom', `${this.vepDir}/Plugins/VariantScore/gnomad_e_xgb_scores_sorted.vcf.gz,variantScore,vcf,exact,0,VAR_GENE,VAR_SCORE`,
                 '-custom', `${this.vepDir}/Plugins/dbsnp/dbsnp-153.vcf.gz,dbSNP,vcf,exact,0,RS`,
-                '-custom', `${this.vepDir}/Plugins/gnomAD/gnomad.genomes.v3.1.sites.chrM.vcf.gz,gnomMT,vcf,exact,0,AC,AF_hom,AF_het,AN,pop_AF_hom,pop_AF_het`
+                '-custom', `${this.vepDir}/Plugins/gnomAD/gnomad.genomes.v3.1.sites.chrM.vcf.gz,gnomMT,vcf,exact,0,AC,AF_hom,AF_het,AN,pop_AF_hom,pop_AF_het`,
+                '-custom', `${input}.gz,VCF,vcf,exact,0,VKEY`,
             ]
         } else if (assembly == "hg38") {
             args = [
@@ -95,11 +99,12 @@ export class AnnovarService {
                 '--species',  'homo_sapiens', '--vcf',
                 '--force_overwrite',
                 '--assembly', 'GRCh38',
-				'--fasta', `${this.vepDir}/.vep_110.1/homo_sapiens_merged/110_GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly_bgzip.fa.gz`,
+				'--fasta', `${this.s3Dir}/fasta_files/hg38.fa.gz`,
                 '--everything', '--hgvs',  '--merged',
-                '--canonical',  '--pubmed','--total_length', '--number', '--stats_text', '--fork', '50', '--exclude_predicted',
+                '--canonical',  '--pubmed','--total_length', '--number', '--stats_text', '--fork', '4', '--exclude_predicted',
                 '--plugin', `CADD,${this.vepDir}/.vep_110.1/Plugins/CADD/hg38/whole_genome_SNVs.tsv.gz,${this.vepDir}/.vep_110.1/Plugins/CADD/hg38/gnomad.genomes.r3.0.indel.tsv.gz`,
-                '-custom', `${this.vepDir}/.vep_110.1/Plugins/clinvar38/clinvar_20230819_edited.vcf.gz,Clinvar,vcf,exact,0,VARIANT_ID,CLNSIG,CLNSIGCONF,GENEINFO`, '--dir', '/home/apps/VEP/.vep_110.1/'
+                '-custom', `${this.vepDir}/.vep_110.1/Plugins/clinvar38/clinvar_20230819_edited.vcf.gz,Clinvar,vcf,exact,0,VARIANT_ID,CLNSIG,CLNSIGCONF,GENEINFO`, 
+                '--dir', '/home/apps/VEP/.vep_110.1/'
             ]
         } else {
             return new Error("analysis's assembly is invaid")
