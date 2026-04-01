@@ -14,6 +14,8 @@ export const VCF_CANONICAL_FILE = 'analysis.cannonical'
 
 export const VCF_NORMALIZED_FILE = 'analysis.normalized.vcf.gz'
 
+export const VCF_FASTQ_FILE = 'analysis.fastq.vcf.gz'
+
 // VEP files
 export const VEP_OUTPUT = 'vep.canonical'
 export const VCF_HGMD = 'vep.hgmd.vcf'

@@ -114,21 +114,42 @@ export class AppService {
 
   async preprocess() {
     this.logger.log('Preprocessing VCF file');
-    let copyOriginalFile = '';
-    this.isGZ = this.analysis.upload.file_path.indexOf('vcf.gz') != -1 ? true : false;
-    this.vcfOriginal = `${this.analysisFolder}/${this.isGZ ? VCF_ORIGINAL_ZIP_FILE : VCF_ORIGINAL_FILE}`;
 
-    if (!fs.existsSync(`${this.s3Dir}/${this.analysis.upload.file_path}`)) {
-      throw new Error('Original file not found!');
+    const isGzFile = (path: string) => path.includes('vcf.gz');
+    const commands: string[] = [`cd ${this.s3Dir}`];
+
+    if (this.analysis.p_type === 'fastq') {
+      const srcPath = this.analysis.file_path;
+      const fullSrcPath = `${this.s3Dir}/${srcPath}`;
+
+      if (!fs.existsSync(fullSrcPath)) {
+          throw new Error('Original VCF file from fastq not found!');
+      }
+
+      this.isGZ = isGzFile(srcPath);
+      this.vcfOriginal = `${this.analysisFolder}/${this.isGZ ? VCF_ORIGINAL_ZIP_FILE : VCF_ORIGINAL_FILE}`;
+
+      this.logger.log('Using original file from fastq');
+      commands.push(`cp ${srcPath} ${this.vcfOriginal}`);
+    } else {
+      const srcPath = this.analysis.upload.file_path;
+      const fullSrcPath = `${this.s3Dir}/${srcPath}`;
+
+      if (!fs.existsSync(fullSrcPath)) {
+          throw new Error('Original file not found!');
+      }
+
+      this.isGZ = isGzFile(srcPath);
+      this.vcfOriginal = `${this.analysisFolder}/${this.isGZ ? VCF_ORIGINAL_ZIP_FILE : VCF_ORIGINAL_FILE}`;
+
+      const fullDestPath = `${this.s3Dir}/${this.vcfOriginal}`;
+      if (!fs.existsSync(fullDestPath)) {
+          this.logger.log('Copying original file...');
+          commands.push(`cp ${srcPath} ${this.vcfOriginal}`);
+      }
     }
 
-    if (!fs.existsSync(`${this.s3Dir}/${this.vcfOriginal}`)) {
-      this.logger.log('Copy original file!');
-      copyOriginalFile = `&& cp ${this.analysis.upload.file_path} ${this.vcfOriginal}`;
-    }
-
-    let command = `cd ${this.s3Dir} ${copyOriginalFile}`
-    return await this.commonService.runCommand(command);
+    return await this.commonService.runCommand(commands.join(' && '));
   }
 
   async fomatVcfFile() {
