@@ -84,7 +84,7 @@ export class AnnovarService {
                 '--canonical', '--pubmed', '--total_length', '--number', '--stats_text', '--fork', '2', '--exclude_predicted',
                 '--plugin', `CADD,${this.vepPluginsDir}/CADD/whole_genome_SNVs.tsv.gz,${this.vepPluginsDir}/CADD/InDels.tsv.gz`,
                 '--plugin', `REVEL,file=${this.vepPluginsDir}/REVEL_AlphaMissense_SpliceAI/new_tabbed_revel.tsv.gz,no_match=1`,
-                '--plugin', `AlphaMissense,file=${this.vepPluginsDir}/REVEL_AlphaMissense_SpliceAI/AlphaMissense_hg19.tsv.gz`,
+                // '--plugin', `AlphaMissense,file=${this.vepPluginsDir}/REVEL_AlphaMissense_SpliceAI/AlphaMissense_hg19.tsv.gz`,
                 '--plugin', `SpliceAI,snv=${this.vepPluginsDir}/REVEL_AlphaMissense_SpliceAI/spliceai_scores.masked.snv.hg19.vcf.gz,indel=${this.vepPluginsDir}/REVEL_AlphaMissense_SpliceAI/spliceai_scores.masked.indel.hg19.vcf.gz`,
                 // '-custom', `${this.vepPluginsDir}/CLINVAR/clinvar_20181028_a.vcf.gz,Clinvar,vcf,exact,0,VARIANT_ID`,
                 // '-custom', `${this.vepPluginsDir}/gnomAD/gnomad.genomes.r2.1.sites.vcf.gz,gnomADg,vcf,exact,0,AF,AF_afr,AF_amr,AF_asj,AF_eas,AF_fin,AF_nfe,AF_oth`,
