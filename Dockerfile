@@ -1,5 +1,7 @@
 FROM ensemblorg/ensembl-vep:release_101.0
 
+USER root
+
 RUN apt-get update && apt-get install -y curl && \
     curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash && \
     export NVM_DIR="$HOME/.nvm" && \
