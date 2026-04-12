@@ -1,11 +1,10 @@
-FROM ensemblorg/ensembl-vep:release_101.0
+FROM ensemblorg/ensembl-vep:release_114.0
 
 USER root
 
-RUN apt-get update && apt-get install -y wget && \
-    wget -q https://nodejs.org/dist/v18.18.2/node-v18.18.2-linux-x64.tar.gz && \
-    tar -xzf node-v18.18.2-linux-x64.tar.gz -C /usr/local --strip-components=1 && \
-    rm node-v18.18.2-linux-x64.tar.gz && \
+RUN apt-get update && apt-get install -y curl && \
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y nodejs && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN apt-get update && apt-get install -y \
@@ -16,7 +15,7 @@ RUN apt-get update && apt-get install -y \
     bcftools \
     less \
     unzip \
-    curl \
+    wget \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN npm install -g pm2
