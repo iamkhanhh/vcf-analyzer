@@ -3,9 +3,9 @@ FROM ensemblorg/ensembl-vep:release_101.0
 USER root
 
 RUN apt-get update && apt-get install -y wget && \
-    wget -q https://nodejs.org/dist/v18.20.4/node-v18.20.4-linux-x64.tar.gz && \
-    tar -xzf node-v18.20.4-linux-x64.tar.gz -C /usr/local --strip-components=1 && \
-    rm node-v18.20.4-linux-x64.tar.gz && \
+    wget -q https://nodejs.org/dist/v18.18.2/node-v18.18.2-linux-x64.tar.gz && \
+    tar -xzf node-v18.18.2-linux-x64.tar.gz -C /usr/local --strip-components=1 && \
+    rm node-v18.18.2-linux-x64.tar.gz && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN apt-get update && apt-get install -y \
