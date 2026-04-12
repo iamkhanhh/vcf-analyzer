@@ -16,7 +16,7 @@ export class CommonService {
         console.log(`Running command: ${command}`);
 
         return await new Promise((resolve, reject) => {
-            exec(command, { maxBuffer: 1024 * 500 }, (error, stdout, stderr) => {
+            exec(command, { maxBuffer: 1024 * 1024 * 500 }, (error, stdout, stderr) => {
                 if (error) {
                     this.logger.error(stderr);
                     return reject(error)

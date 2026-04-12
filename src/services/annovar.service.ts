@@ -15,12 +15,17 @@ export class AnnovarService {
     private vepCommand: string;
     private dataFolder: string;
 
+    private vepCacheDir: string;
+    private vepPluginsDir: string;
+
     constructor(
         private configService: ConfigService,
         private readonly commonService: CommonService
     ) {
         this.s3Dir = this.configService.get<string>('AWS_DIR');
         this.vepDir = this.configService.get<string>('VEP_DIR');
+        this.vepCacheDir = this.configService.get<string>('VEP_CACHE_DIR', '/root/.vep');
+        this.vepPluginsDir = `${this.vepDir}/Plugins`;
         this.vepCommand = this.configService.get<string>('VEP_COMMAND');
         this.dataFolder = this.commonService.getDataFolder();
     }
@@ -69,24 +74,26 @@ export class AnnovarService {
                 '-i', `${input}`,
                 '-o', `${output}`,
                 '--offline',
+                '--cache', '--dir_cache', this.vepCacheDir,
+                '--dir_plugins', this.vepPluginsDir,
                 '--species', 'homo_sapiens', '--vcf',
                 '--force_overwrite',
                 '--assembly', 'GRCh37',
                 '--fasta', `${this.s3Dir}/fasta_files/hg19.fa.gz`,
                 '--everything', '--hgvs', '--merged',
-                '--canonical', '--pubmed', '--total_length', '--number', '--stats_text', '--fork', '4', '--exclude_predicted',
-                '--plugin', `CADD,${this.vepDir}/Plugins/CADD/whole_genome_SNVs.tsv.gz,${this.vepDir}/Plugins/CADD/InDels.tsv.gz`,
-                '--plugin', `REVEL,file=${this.vepDir}/.vep/Plugins/REVEL_AlphaMissense_SpliceAI/new_tabbed_revel.tsv.gz,no_match=1`, 
-                '--plugin', `AlphaMissense,file=${this.vepDir}/.vep/Plugins/REVEL_AlphaMissense_SpliceAI/AlphaMissense_hg19.tsv.gz`, 
-                '--plugin', `SpliceAI,snv=${this.vepDir}/.vep/Plugins/REVEL_AlphaMissense_SpliceAI/spliceai_scores.masked.snv.hg19.vcf.gz,indel=${this.vepDir}/.vep/Plugins/REVEL_AlphaMissense_SpliceAI/spliceai_scores.masked.indel.hg19.vcf.gz`,
-                '-custom', `${this.vepDir}/Plugins/CLINVAR/clinvar_20181028_a.vcf.gz,Clinvar,vcf,exact,0,VARIANT_ID`,
-                '-custom', `${this.vepDir}/Plugins/gnomAD/gnomad.genomes.r2.1.sites.vcf.gz,gnomADg,vcf,exact,0,AF,AF_afr,AF_amr,AF_asj,AF_eas,AF_fin,AF_nfe,AF_oth`,
-                '-custom', `${this.vepDir}/Plugins/ExAC/ExAC.r1.sites.vep.vcf.gz,ExAC,vcf,exact,0,AC,AC_Adj,AC_AFR,AC_AMR,AC_EAS,AC_FIN,AC_NFE,AN_Adj,AC_OTH,AC_SAS,AF,AN,AN_AFR,AN_AMR,AN_EAS,AN_FIN,AN_NFE,AN_OTH,AN_SAS`,
-                '-custom', `${this.vepDir}/Plugins/gnomAD/gnomad.exomes.r2.1.sites.vcf.gz,gnomADe,vcf,exact,0,AF,AF_afr,AF_amr,AF_asj,AF_eas,AF_fin,AF_nfe,AF_oth,AF_sas`,
-                '-custom', `${this.vepDir}/Plugins/Mastermind/mastermind.vcf.gz,masterMind,vcf,exact,0,GENE,MMCNT3,MMID3`,
-                '-custom', `${this.vepDir}/Plugins/VariantScore/gnomad_e_xgb_scores_sorted.vcf.gz,variantScore,vcf,exact,0,VAR_GENE,VAR_SCORE`,
-                '-custom', `${this.vepDir}/Plugins/dbsnp/dbsnp-153.vcf.gz,dbSNP,vcf,exact,0,RS`,
-                '-custom', `${this.vepDir}/Plugins/gnomAD/gnomad.genomes.v3.1.sites.chrM.vcf.gz,gnomMT,vcf,exact,0,AC,AF_hom,AF_het,AN,pop_AF_hom,pop_AF_het`,
+                '--canonical', '--pubmed', '--total_length', '--number', '--stats_text', '--fork', '2', '--exclude_predicted',
+                '--plugin', `CADD,${this.vepPluginsDir}/CADD/whole_genome_SNVs.tsv.gz,${this.vepPluginsDir}/CADD/InDels.tsv.gz`,
+                '--plugin', `REVEL,file=${this.vepPluginsDir}/REVEL_AlphaMissense_SpliceAI/new_tabbed_revel.tsv.gz,no_match=1`,
+                '--plugin', `AlphaMissense,file=${this.vepPluginsDir}/REVEL_AlphaMissense_SpliceAI/AlphaMissense_hg19.tsv.gz`,
+                '--plugin', `SpliceAI,snv=${this.vepPluginsDir}/REVEL_AlphaMissense_SpliceAI/spliceai_scores.masked.snv.hg19.vcf.gz,indel=${this.vepPluginsDir}/REVEL_AlphaMissense_SpliceAI/spliceai_scores.masked.indel.hg19.vcf.gz`,
+                // '-custom', `${this.vepPluginsDir}/CLINVAR/clinvar_20181028_a.vcf.gz,Clinvar,vcf,exact,0,VARIANT_ID`,
+                // '-custom', `${this.vepPluginsDir}/gnomAD/gnomad.genomes.r2.1.sites.vcf.gz,gnomADg,vcf,exact,0,AF,AF_afr,AF_amr,AF_asj,AF_eas,AF_fin,AF_nfe,AF_oth`,
+                // '-custom', `${this.vepPluginsDir}/ExAC/ExAC.r1.sites.vep.vcf.gz,ExAC,vcf,exact,0,AC,AC_Adj,AC_AFR,AC_AMR,AC_EAS,AC_FIN,AC_NFE,AN_Adj,AC_OTH,AC_SAS,AF,AN,AN_AFR,AN_AMR,AN_EAS,AN_FIN,AN_NFE,AN_OTH,AN_SAS`,
+                // '-custom', `${this.vepPluginsDir}/gnomAD/gnomad.exomes.r2.1.sites.vcf.gz,gnomADe,vcf,exact,0,AF,AF_afr,AF_amr,AF_asj,AF_eas,AF_fin,AF_nfe,AF_oth,AF_sas`,
+                // '-custom', `${this.vepPluginsDir}/Mastermind/mastermind.vcf.gz,masterMind,vcf,exact,0,GENE,MMCNT3,MMID3`,
+                // '-custom', `${this.vepPluginsDir}/VariantScore/gnomad_e_xgb_scores_sorted.vcf.gz,variantScore,vcf,exact,0,VAR_GENE,VAR_SCORE`,
+                // '-custom', `${this.vepPluginsDir}/dbsnp/dbsnp-153.vcf.gz,dbSNP,vcf,exact,0,RS`,
+                // '-custom', `${this.vepPluginsDir}/gnomAD/gnomad.genomes.v3.1.sites.chrM.vcf.gz,gnomMT,vcf,exact,0,AC,AF_hom,AF_het,AN,pop_AF_hom,pop_AF_het`,
                 '-custom', `${input}.gz,VCF,vcf,exact,0,VKEY`,
             ]
         } else if (assembly == "hg38") {
@@ -94,15 +101,16 @@ export class AnnovarService {
                 '-i', `${input}`,
                 '-o', `${output}`,
                 '--offline',
-                '--species',  'homo_sapiens', '--vcf',
+                '--cache', '--dir_cache', this.vepCacheDir,
+                '--dir_plugins', this.vepPluginsDir,
+                '--species', 'homo_sapiens', '--vcf',
                 '--force_overwrite',
                 '--assembly', 'GRCh38',
-				'--fasta', `${this.s3Dir}/fasta_files/hg38.fa.gz`,
-                '--everything', '--hgvs',  '--merged',
-                '--canonical',  '--pubmed','--total_length', '--number', '--stats_text', '--fork', '4', '--exclude_predicted',
-                '--plugin', `CADD,${this.vepDir}/.vep_110.1/Plugins/CADD/hg38/whole_genome_SNVs.tsv.gz,${this.vepDir}/.vep_110.1/Plugins/CADD/hg38/gnomad.genomes.r3.0.indel.tsv.gz`,
-                '-custom', `${this.vepDir}/.vep_110.1/Plugins/clinvar38/clinvar_20230819_edited.vcf.gz,Clinvar,vcf,exact,0,VARIANT_ID,CLNSIG,CLNSIGCONF,GENEINFO`, 
-                '--dir', '/home/apps/VEP/.vep_110.1/'
+                '--fasta', `${this.s3Dir}/fasta_files/hg38.fa.gz`,
+                '--everything', '--hgvs', '--merged',
+                '--canonical', '--pubmed', '--total_length', '--number', '--stats_text', '--fork', '2', '--exclude_predicted',
+                '--plugin', `CADD,${this.vepPluginsDir}/CADD/hg38/whole_genome_SNVs.tsv.gz,${this.vepPluginsDir}/CADD/hg38/gnomad.genomes.r3.0.indel.tsv.gz`,
+                // '-custom', `${this.vepPluginsDir}/clinvar38/clinvar_20230819_edited.vcf.gz,Clinvar,vcf,exact,0,VARIANT_ID,CLNSIG,CLNSIGCONF,GENEINFO`,
             ]
         } else {
             return new Error("analysis's assembly is invaid")

@@ -5,6 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { AnalysisModel, AnalysisStatus } from './models/analysis.model';
 import * as fs from 'fs'
+import * as fsp from 'fs/promises'
 import { INTERSECT_BED_CMD, RESULT_ANNO_FILE, VCF_APPLIED_BED, VCF_BGZIP_CMD, VCF_FILE, VCF_MODIFIED_FILE, VCF_ORIGINAL_FILE, VCF_ORIGINAL_ZIP_FILE, VCF_SORT_CMD, VCF_TABIX_CMD, VCF_ZIP_FILE, VEP_OUTPUT } from './constants';
 
 @Injectable()
@@ -43,7 +44,7 @@ export class AppService {
     this.pharmaGkbFile = "PharmaGKB.tsv";
   }
 
-  // @Cron(CronExpression.EVERY_30_SECONDS)
+  @Cron(CronExpression.EVERY_30_SECONDS)
   async vcf_analyzer() {
     let pendingAnalysis;
     try {
@@ -79,13 +80,14 @@ export class AppService {
 
   async analyze(analysis: AnalysisModel) {
     this.logger.log(`Analyzing VCF for analysis ID: ${analysis.id}`);
+    const tmpDir = `${this.CWD}/tmp/analysis_${analysis.id}`;
     try {
       this.analysisFolder = this.commonService.getAnalysisFolder(analysis);
       this.analysis = analysis;
       this.vcfBed = `${this.analysisFolder}/${VCF_APPLIED_BED}`;
       this.vcfFile = `${this.analysisFolder}/${VCF_FILE}`
       this.vcfModified = `${this.analysisFolder}/${VCF_MODIFIED_FILE}`;
-      this.vepOutput = `${this.CWD}/tmp/analysis_${analysis.id}/${VEP_OUTPUT}`;
+      this.vepOutput = `${tmpDir}/${VEP_OUTPUT}`;
 
       await this.preprocess();
 
@@ -109,6 +111,9 @@ export class AppService {
     } catch (error) {
       this.logger.error(`Error analyzing VCF for analysis ID ${this.analysis.id}`, error);
       throw error;
+    } finally {
+      await fsp.rm(tmpDir, { recursive: true, force: true })
+        .catch(err => this.logger.warn(`Could not clean up tmp dir ${tmpDir}: ${err.message}`));
     }
   }
 
