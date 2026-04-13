@@ -97,7 +97,7 @@ export class AppService {
 
       await this.prepareFile();
 
-      await this.annovarService.runVEP(this.vcfFile, this.vepOutput, this.analysis.assembly);
+      await this.annovarService.runVEP(`${this.s3Dir}/${this.vcfFile}`, this.vepOutput, this.analysis.assembly);
 
       await this.annovarService.matchHGNC(this.vepOutput);
 
