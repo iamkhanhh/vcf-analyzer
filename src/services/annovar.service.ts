@@ -109,7 +109,7 @@ export class AnnovarService {
                 '--fasta', `${this.s3Dir}/fasta_files/hg38.fa.gz`,
                 '--everything', '--hgvs', '--merged',
                 '--canonical', '--pubmed', '--total_length', '--number', '--stats_text', '--fork', '2', '--exclude_predicted',
-                '--plugin', `CADD,${this.vepPluginsDir}/CADD/hg38/whole_genome_SNVs.tsv.gz,${this.vepPluginsDir}/CADD/hg38/gnomad.genomes.r3.0.indel.tsv.gz`,
+                // '--plugin', `CADD,${this.vepPluginsDir}/CADD/hg38/whole_genome_SNVs.tsv.gz,${this.vepPluginsDir}/CADD/hg38/gnomad.genomes.r3.0.indel.tsv.gz`,
                 // '-custom', `${this.vepPluginsDir}/clinvar38/clinvar_20230819_edited.vcf.gz,Clinvar,vcf,exact,0,VARIANT_ID,CLNSIG,CLNSIGCONF,GENEINFO`,
             ]
         } else {
