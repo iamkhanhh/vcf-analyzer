@@ -11,7 +11,7 @@ ouput=$4
 
 # Configuration
 workdir=$tmp_folder
-header_backup=$data_folder'/header_v2.txt'
+target_csq_header=$data_folder'/header_v2.txt'
 TRANSCIPT_LENGTH=$data_folder'/transcript_length.txt'
 MANE_FILE=$data_folder'/mane_table.tsv'
 HGNC_FILE=$data_folder'/HGNC_JUL062023.tsv'
@@ -27,15 +27,23 @@ logfile=$workdir/run.log
 exec > >(tee -a "$logfile") 2>&1
 
 generated_header=$workdir'/header.generated.tsv'
+canonical_tsv=$workdir'/canonical.tsv'
 
-python3 - "$canonical" "$generated_header" "$header_backup" <<'PY'
+python3 - "$canonical" "$generated_header" "$canonical_tsv" "$target_csq_header" <<'PY'
 import re
 import sys
 from pathlib import Path
 
 canonical = Path(sys.argv[1])
-output = Path(sys.argv[2])
-backup = Path(sys.argv[3])
+generated_header = Path(sys.argv[2])
+canonical_tsv = Path(sys.argv[3])
+target_header_spec = Path(sys.argv[4])
+
+target_text = target_header_spec.read_text().strip()
+target_match = re.search(r'Format: (.+?)">', target_text)
+if not target_match:
+    raise SystemExit("Could not parse target CSQ format from header_v2.txt")
+target_fields = target_match.group(1).split("|")
 
 csq_fields = None
 with canonical.open() as fh:
@@ -48,29 +56,57 @@ with canonical.open() as fh:
             break
 
 if csq_fields is None:
-    if not backup.exists():
-        raise SystemExit("CSQ header not found in canonical file and backup header_v2.txt is missing")
+    csq_fields = target_fields
 
-    backup_text = backup.read_text().strip()
-    match = re.search(r'Format: (.+?)">', backup_text)
-    if not match:
-        raise SystemExit("Could not parse CSQ format from backup header_v2.txt")
-    csq_fields = match.group(1).split("|")
+generated_header.write_text("\t".join(["#CHROM", "POS", "REF", "ALT", *target_fields]) + "\n")
 
-header = ["#CHROM", "POS", "REF", "ALT", *csq_fields]
-output.write_text("\t".join(header) + "\n")
+rows = []
+with canonical.open() as fh:
+    for raw_line in fh:
+        if raw_line.startswith("#"):
+            continue
+
+        line = raw_line.rstrip("\n")
+        if not line:
+            continue
+
+        cols = line.split("\t")
+        if len(cols) < 8:
+            continue
+
+        chrom, pos, ref, alt, info = cols[0], cols[1], cols[3], cols[4], cols[7]
+        match = re.search(r'(?:^|;)CSQ=([^;]+)', info)
+        if not match:
+            continue
+
+        csq_entries = match.group(1).split(",")
+        for entry in csq_entries:
+            values = entry.split("|")
+            if len(values) < len(csq_fields):
+                values.extend([""] * (len(csq_fields) - len(values)))
+            elif len(values) > len(csq_fields):
+                values = values[:len(csq_fields)]
+
+            mapped = {}
+            for field_name, value in zip(csq_fields, values):
+                mapped[field_name] = value if value != "" else "."
+
+            row = [chrom, pos, ref, alt]
+            for field_name in target_fields:
+                row.append(mapped.get(field_name, "."))
+            rows.append("\t".join(row))
+
+canonical_tsv.write_text("\n".join(rows) + ("\n" if rows else ""))
 PY
 
-less $canonical | grep -v "#" | awk -F"\t" '{split($8, a, "CSQ="); print $1"\t"$2"\t"$4"\t"$5"\t"a[2]}'  | awk -F"\t" 'BEGIN{OFS="\t"}{ split($5,a,","); col5 = $5; for (i in a){ $5=a[i]; print }}' | awk -F"\t" 'BEGIN{OFS="\t"}{split($5,a,"|"); col5= ""; for (i=1; i<=length(a); i++) {if(a[i] == ""){ a[i]="." };col5=col5"\t"a[i]}; print $1"\t"$2"\t"$3"\t"$4""col5}' > canonical.tsv
-
 header_cols=$(awk -F"\t" 'NR==1{print NF}' "$generated_header")
-data_cols=$(awk -F"\t" 'NR==1{print NF}' canonical.tsv)
+data_cols=$(awk -F"\t" 'NR==1{print NF}' "$canonical_tsv")
 if [ "$header_cols" -ne "$data_cols" ]; then
   echo "Header/data column mismatch: header=$header_cols data=$data_cols" >&2
   exit 1
 fi
 
-cat $generated_header canonical.tsv > canonical_header.tsv
+cat $generated_header "$canonical_tsv" > canonical_header.tsv
 
 # Add Mane transcript
 awk -F"\t" 'FNR==NR {a[$1] = $2; b[$1] = 1; next}{ if ( $1 == "#CHROM") { print $0"\tMANE_TR" } else { if(b[$8] == 1){ print $0"\t"a[$8]} else { print $0"\tNO_MANE" }}}' $MANE_FILE canonical_header.tsv > canonical_mane.tsv
