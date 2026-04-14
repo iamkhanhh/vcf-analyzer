@@ -44,7 +44,7 @@ export class AppService {
     this.pharmaGkbFile = "PharmaGKB.tsv";
   }
 
-  // @Cron(CronExpression.EVERY_30_SECONDS)
+  @Cron(CronExpression.EVERY_30_SECONDS)
   async vcf_analyzer() {
     let pendingAnalysis;
     try {
@@ -112,8 +112,8 @@ export class AppService {
       this.logger.error(`Error analyzing VCF for analysis ID ${this.analysis.id}`, error);
       throw error;
     } finally {
-      // await fsp.rm(tmpDir, { recursive: true, force: true })
-      //   .catch(err => this.logger.warn(`Could not clean up tmp dir ${tmpDir}: ${err.message}`));
+      await fsp.rm(tmpDir, { recursive: true, force: true })
+        .catch(err => this.logger.warn(`Could not clean up tmp dir ${tmpDir}: ${err.message}`));
     }
   }
 
