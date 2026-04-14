@@ -341,15 +341,15 @@ export class VcfService {
             result.REF = data[refIndex];
             result.QUAL = data[qualIndex];
             result.FILTER = data[filterIndex];
-            result.INFO = data[infoIndex];
+            result.INFO = infoIndex !== -1 ? (data[infoIndex] ?? '') : '';
 
-            if (result.INFO.indexOf(';CSQ=') != -1) {
+            if (typeof result.INFO === 'string' && result.INFO.indexOf(';CSQ=') != -1) {
                 let vepRL = result.INFO.split(';CSQ=')[1];
                 let geneTranscipt = vepRL.split('|')[6];
                 result.MT = geneTranscipt;
             }
 
-            result.ALT = data[altIndex].split(',');
+            result.ALT = altIndex !== -1 && data[altIndex] != null ? data[altIndex].split(',') : ['.'];
             result.chrom = data[chromIndex];
             result.inputPos = data[inputPosIndex];
 
@@ -362,17 +362,22 @@ export class VcfService {
     writeAfVcf(line: string, extraData: any) {
         let infoIndex = this.headings.indexOf('INFO');
         let data = line.split('\t');
+        if (infoIndex === -1 || data[infoIndex] == null) {
+            fs.appendFileSync(this.AfVcfFile, data.join('\t') + '\n');
+            return;
+        }
+
         let infoData = data[infoIndex].split(';');
         let checkExist = false;
 
         for (var i in infoData) {
-            if (infoData[i].indexOf('AF=') == 0 && extraData.alleleFrequency != null) {
+            if (typeof infoData[i] === 'string' && infoData[i].indexOf('AF=') == 0 && extraData.alleleFrequency != null) {
                 let AF = Math.round(extraData.alleleFrequency * 1000) / 1000;
                 infoData[i] = `AF=${AF}`;
                 data[infoIndex] = infoData.join(';');
             }
 
-            if (infoData[i].indexOf('AF=') == 0) {
+            if (typeof infoData[i] === 'string' && infoData[i].indexOf('AF=') == 0) {
                 checkExist = true;
             }
         }
@@ -608,11 +613,20 @@ export class VcfService {
         let chromIndex = this.headings.indexOf('#CHROM')
         let formatIndex = this.headings.indexOf('FORMAT')
         let infoIndex = this.headings.indexOf('INFO')
-        let variantIndex = this.calculateService.getExtraData2('VARINDEX', data[infoIndex]);
-        let vcfAF = this.calculateService.getExtraData2('AF', data[infoIndex]);
+        let infoValue = infoIndex !== -1 ? (data[infoIndex] ?? '') : '';
+        let variantIndex = infoValue ? this.calculateService.getExtraData2('VARINDEX', infoValue) : null;
+        let vcfAF = infoValue ? this.calculateService.getExtraData2('AF', infoValue) : null;
 
         // Ugly check if this is a variant row
-        let chrom = data[chromIndex]
+        let chrom = chromIndex !== -1 ? (data[chromIndex] ?? '') : ''
+        if (!chrom) {
+            return {
+                readDepth: null,
+                alleleFrequency: null,
+                coverage: null
+            }
+        }
+
         if (chrom.indexOf('##') == 0) {
             return {
                 readDepth: null,
@@ -646,6 +660,14 @@ export class VcfService {
             let format = data[formatIndex]
             let formatData = data[formatIndex + 1]
             let result
+
+            if (typeof format !== 'string' || format.length === 0) {
+                return {
+                    readDepth: null,
+                    alleleFrequency: null,
+                    coverage: null
+                }
+            }
 
             if (format == 'GT:AD:DP:GQ:PL'
                 || format == 'GT:AD:DP:GQ:PGT:PID:PL'
