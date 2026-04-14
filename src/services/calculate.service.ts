@@ -909,10 +909,13 @@ export class CalculateService {
     }
 
     getRsID(vepRSID) {
-        var rsIdArray = vepRSID.split(',');
-        for (var i in rsIdArray) {
-            var rsId = rsIdArray[i]
-            if (rsId.indexOf('rs') != -1) {
+        if (vepRSID == null || vepRSID == '.' || vepRSID == '') {
+            return '.';
+        }
+
+        const rsIdArray = vepRSID.split(/[,&]/);
+        for (const rsId of rsIdArray) {
+            if (rsId.startsWith('rs')) {
                 return rsId;
             }
         }
