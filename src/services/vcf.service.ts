@@ -534,7 +534,18 @@ export class VcfService {
                             "AF_hom",
                             "AF_het",
                             "pop_AF_hom",
-                            "pop_AF_het"
+                            "pop_AF_het",
+                            "REVEL",
+                            "am_pathogenicity",
+                            "am_class",
+                            "SpliceAI_DP_AG",
+                            "SpliceAI_DP_AL",
+                            "SpliceAI_DP_DG",
+                            "SpliceAI_DP_DL",
+                            "SpliceAI_DS_AG",
+                            "SpliceAI_DS_AL",
+                            "SpliceAI_DS_DG",
+                            "SpliceAI_DS_DL",
                         ]
 
                         this.annoStream.firstLine = true;
@@ -1159,6 +1170,17 @@ export class VcfService {
             this.getExtraValue(extraData, 'gnomMT_AF_het'),                       // AF_het
             this.getExtraValue(extraData, 'gnomMT_pop_AF_hom'),                   // pop_AF_hom
             this.getExtraValue(extraData, 'gnomMT_pop_AF_het'),                   // pop_AF_het
+            this.getExtraValue(extraData, 'REVEL'),                                // REVEL
+            this.getExtraValue(extraData, 'am_pathogenicity'),                     // am_pathogenicity
+            this.getExtraValue(extraData, 'am_class'),                             // am_class
+            this.getExtraValue(extraData, 'SpliceAI_pred_DP_AG'),                  // SpliceAI_DP_AG
+            this.getExtraValue(extraData, 'SpliceAI_pred_DP_AL'),                  // SpliceAI_DP_AL
+            this.getExtraValue(extraData, 'SpliceAI_pred_DP_DG'),                  // SpliceAI_DP_DG
+            this.getExtraValue(extraData, 'SpliceAI_pred_DP_DL'),                  // SpliceAI_DP_DL
+            this.getExtraValue(extraData, 'SpliceAI_pred_DS_AG'),                  // SpliceAI_DS_AG
+            this.getExtraValue(extraData, 'SpliceAI_pred_DS_AL'),                  // SpliceAI_DS_AL
+            this.getExtraValue(extraData, 'SpliceAI_pred_DS_DG'),                  // SpliceAI_DS_DG
+            this.getExtraValue(extraData, 'SpliceAI_pred_DS_DL'),                // SpliceAI_SYMBOL
         ]
 
         fs.appendFileSync(this.annoFile, '\n' + data.join('\t'));
