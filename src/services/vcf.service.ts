@@ -43,6 +43,33 @@ export class VcfService {
     private _clinvarBTG: string
     private _hgmdPath: string
 
+    private getHeadingIndex(...names: string[]): number {
+        for (const name of names) {
+            const index = this.annoStream.headings.indexOf(name);
+            if (index !== -1) {
+                return index;
+            }
+        }
+
+        return -1;
+    }
+
+    private getLineValue(lineData: string[], ...names: string[]): string {
+        const index = this.getHeadingIndex(...names);
+
+        if (index === -1) {
+            return '.';
+        }
+
+        const value = lineData[index];
+        return value == undefined || value === '' ? '.' : value;
+    }
+
+    private getExtraValue(extraData: string[], ...names: string[]): string {
+        const value = this.getLineValue(extraData, ...names);
+        return this.calculateService.formatData(value);
+    }
+
     constructor(
         private readonly commonService: CommonService,
         private configService: ConfigService,
@@ -314,15 +341,15 @@ export class VcfService {
             result.REF = data[refIndex];
             result.QUAL = data[qualIndex];
             result.FILTER = data[filterIndex];
-            result.INFO = data[infoIndex];
+            result.INFO = infoIndex !== -1 ? (data[infoIndex] ?? '') : '';
 
-            if (result.INFO.indexOf(';CSQ=') != -1) {
+            if (typeof result.INFO === 'string' && result.INFO.indexOf(';CSQ=') != -1) {
                 let vepRL = result.INFO.split(';CSQ=')[1];
                 let geneTranscipt = vepRL.split('|')[6];
                 result.MT = geneTranscipt;
             }
 
-            result.ALT = data[altIndex].split(',');
+            result.ALT = altIndex !== -1 && data[altIndex] != null ? data[altIndex].split(',') : ['.'];
             result.chrom = data[chromIndex];
             result.inputPos = data[inputPosIndex];
 
@@ -335,17 +362,22 @@ export class VcfService {
     writeAfVcf(line: string, extraData: any) {
         let infoIndex = this.headings.indexOf('INFO');
         let data = line.split('\t');
+        if (infoIndex === -1 || data[infoIndex] == null) {
+            fs.appendFileSync(this.AfVcfFile, data.join('\t') + '\n');
+            return;
+        }
+
         let infoData = data[infoIndex].split(';');
         let checkExist = false;
 
         for (var i in infoData) {
-            if (infoData[i].indexOf('AF=') == 0 && extraData.alleleFrequency != null) {
+            if (typeof infoData[i] === 'string' && infoData[i].indexOf('AF=') == 0 && extraData.alleleFrequency != null) {
                 let AF = Math.round(extraData.alleleFrequency * 1000) / 1000;
                 infoData[i] = `AF=${AF}`;
                 data[infoIndex] = infoData.join(';');
             }
 
-            if (infoData[i].indexOf('AF=') == 0) {
+            if (typeof infoData[i] === 'string' && infoData[i].indexOf('AF=') == 0) {
                 checkExist = true;
             }
         }
@@ -502,7 +534,18 @@ export class VcfService {
                             "AF_hom",
                             "AF_het",
                             "pop_AF_hom",
-                            "pop_AF_het"
+                            "pop_AF_het",
+                            "REVEL",
+                            "am_pathogenicity",
+                            "am_class",
+                            "SpliceAI_DP_AG",
+                            "SpliceAI_DP_AL",
+                            "SpliceAI_DP_DG",
+                            "SpliceAI_DP_DL",
+                            "SpliceAI_DS_AG",
+                            "SpliceAI_DS_AL",
+                            "SpliceAI_DS_DG",
+                            "SpliceAI_DS_DL",
                         ]
 
                         this.annoStream.firstLine = true;
@@ -581,11 +624,20 @@ export class VcfService {
         let chromIndex = this.headings.indexOf('#CHROM')
         let formatIndex = this.headings.indexOf('FORMAT')
         let infoIndex = this.headings.indexOf('INFO')
-        let variantIndex = this.calculateService.getExtraData2('VARINDEX', data[infoIndex]);
-        let vcfAF = this.calculateService.getExtraData2('AF', data[infoIndex]);
+        let infoValue = infoIndex !== -1 ? (data[infoIndex] ?? '') : '';
+        let variantIndex = infoValue ? this.calculateService.getExtraData2('VARINDEX', infoValue) : null;
+        let vcfAF = infoValue ? this.calculateService.getExtraData2('AF', infoValue) : null;
 
         // Ugly check if this is a variant row
-        let chrom = data[chromIndex]
+        let chrom = chromIndex !== -1 ? (data[chromIndex] ?? '') : ''
+        if (!chrom) {
+            return {
+                readDepth: null,
+                alleleFrequency: null,
+                coverage: null
+            }
+        }
+
         if (chrom.indexOf('##') == 0) {
             return {
                 readDepth: null,
@@ -619,6 +671,14 @@ export class VcfService {
             let format = data[formatIndex]
             let formatData = data[formatIndex + 1]
             let result
+
+            if (typeof format !== 'string' || format.length === 0) {
+                return {
+                    readDepth: null,
+                    alleleFrequency: null,
+                    coverage: null
+                }
+            }
 
             if (format == 'GT:AD:DP:GQ:PL'
                 || format == 'GT:AD:DP:GQ:PGT:PID:PL'
@@ -882,36 +942,36 @@ export class VcfService {
         }
 
         let vepDataIndex = vepChrom + '_' + vepPOS + '_' + vepREF + '_' + vepALT + '_' + gene;
-        let Variant_ID = this.calculateService.formatData(lineData[this.annoStream.headings.indexOf('Clinvar_VARIANT_ID')]);
-        let AF_1000g = this.calculateService.formatData(lineData[this.annoStream.headings.indexOf('AF')]);
-        let EAS_AF_1000g = this.calculateService.formatData(lineData[this.annoStream.headings.indexOf('EAS_AF')]);
-        let AMR_AF_1000g = this.calculateService.formatData(lineData[this.annoStream.headings.indexOf('AMR_AF')]);
-        let AFR_AF_1000g = this.calculateService.formatData(lineData[this.annoStream.headings.indexOf('AFR_AF')]);
-        let EUR_AF_1000g = this.calculateService.formatData(lineData[this.annoStream.headings.indexOf('EUR_AF')]);
-        let SAS_AF_1000g = this.calculateService.formatData(lineData[this.annoStream.headings.indexOf('SAS_AF')]);
-        let AA_AF = this.calculateService.formatData(lineData[this.annoStream.headings.indexOf('AA_AF')]);
-        let EA_AF = this.calculateService.formatData(lineData[this.annoStream.headings.indexOf('EA_AF')]);
+        let Variant_ID = this.getExtraValue(lineData, 'Clinvar_VARIANT_ID');
+        let AF_1000g = this.getExtraValue(lineData, 'AF');
+        let EAS_AF_1000g = this.getExtraValue(lineData, 'EAS_AF');
+        let AMR_AF_1000g = this.getExtraValue(lineData, 'AMR_AF');
+        let AFR_AF_1000g = this.getExtraValue(lineData, 'AFR_AF');
+        let EUR_AF_1000g = this.getExtraValue(lineData, 'EUR_AF');
+        let SAS_AF_1000g = this.getExtraValue(lineData, 'SAS_AF');
+        let AA_AF = this.getExtraValue(lineData, 'AA_AF');
+        let EA_AF = this.getExtraValue(lineData, 'EA_AF');
         CLINSIG = this.calculateService.formatCLINSIG(CLINSIG);
 
         let alleleFrequencyData = {
             AF: vcfExtraData.alleleFrequency,
-            gnomAD_exome_ALL: this.calculateService.formatData(this.calculateService.getExtraData('gnomADe_AF', extraData, this.annoStream.headings)),
-            gnomAD_exome_AFR: this.calculateService.formatData(this.calculateService.getExtraData('gnomADe_AF_afr', extraData, this.annoStream.headings)),
-            gnomAD_exome_AMR: this.calculateService.formatData(this.calculateService.getExtraData('gnomADe_AF_amr', extraData, this.annoStream.headings)),
-            gnomAD_exome_ASJ: this.calculateService.formatData(this.calculateService.getExtraData('gnomADe_AF_asj', extraData, this.annoStream.headings)),
-            gnomAD_exome_EAS: this.calculateService.formatData(this.calculateService.getExtraData('gnomADe_AF_eas', extraData, this.annoStream.headings)),
-            gnomAD_exome_FIN: this.calculateService.formatData(this.calculateService.getExtraData('gnomADe_AF_fin', extraData, this.annoStream.headings)),
-            gnomAD_exome_NFE: this.calculateService.formatData(this.calculateService.getExtraData('gnomADe_AF_nfe', extraData, this.annoStream.headings)),
-            gnomAD_exome_OTH: this.calculateService.formatData(this.calculateService.getExtraData('gnomADe_AF_oth', extraData, this.annoStream.headings)),
-            gnomAD_exome_SAS: this.calculateService.formatData(this.calculateService.getExtraData('gnomADe_AF_sas', extraData, this.annoStream.headings)),
-            gnomAD_genome_ALL: this.calculateService.formatData(this.calculateService.getExtraData('gnomADg_AF', extraData, this.annoStream.headings)),
-            gnomAD_genome_AFR: this.calculateService.formatData(this.calculateService.getExtraData('gnomADg_AF_afr', extraData, this.annoStream.headings)),
-            gnomAD_genome_AMR: this.calculateService.formatData(this.calculateService.getExtraData('gnomADg_AF_amr', extraData, this.annoStream.headings)),
-            gnomAD_genome_ASJ: this.calculateService.formatData(this.calculateService.getExtraData('gnomADg_AF_asj', extraData, this.annoStream.headings)),
-            gnomAD_genome_EAS: this.calculateService.formatData(this.calculateService.getExtraData('gnomADg_AF_eas', extraData, this.annoStream.headings)),
-            gnomAD_genome_FIN: this.calculateService.formatData(this.calculateService.getExtraData('gnomADg_AF_fin', extraData, this.annoStream.headings)),
-            gnomAD_genome_NFE: this.calculateService.formatData(this.calculateService.getExtraData('gnomADg_AF_nfe', extraData, this.annoStream.headings)),
-            gnomAD_genome_OTH: this.calculateService.formatData(this.calculateService.getExtraData('gnomADg_AF_oth', extraData, this.annoStream.headings)),
+            gnomAD_exome_ALL: this.getExtraValue(extraData, 'gnomADe_AF'),
+            gnomAD_exome_AFR: this.getExtraValue(extraData, 'gnomADe_AFR_AF', 'gnomADe_AF_afr'),
+            gnomAD_exome_AMR: this.getExtraValue(extraData, 'gnomADe_AMR_AF', 'gnomADe_AF_amr'),
+            gnomAD_exome_ASJ: this.getExtraValue(extraData, 'gnomADe_ASJ_AF', 'gnomADe_AF_asj'),
+            gnomAD_exome_EAS: this.getExtraValue(extraData, 'gnomADe_EAS_AF', 'gnomADe_AF_eas'),
+            gnomAD_exome_FIN: this.getExtraValue(extraData, 'gnomADe_FIN_AF', 'gnomADe_AF_fin'),
+            gnomAD_exome_NFE: this.getExtraValue(extraData, 'gnomADe_NFE_AF', 'gnomADe_AF_nfe'),
+            gnomAD_exome_OTH: this.getExtraValue(extraData, 'gnomADe_REMAINING_AF', 'gnomADe_AF_oth'),
+            gnomAD_exome_SAS: this.getExtraValue(extraData, 'gnomADe_SAS_AF', 'gnomADe_AF_sas'),
+            gnomAD_genome_ALL: this.getExtraValue(extraData, 'gnomADg_AF'),
+            gnomAD_genome_AFR: this.getExtraValue(extraData, 'gnomADg_AFR_AF', 'gnomADg_AF_afr'),
+            gnomAD_genome_AMR: this.getExtraValue(extraData, 'gnomADg_AMR_AF', 'gnomADg_AF_amr'),
+            gnomAD_genome_ASJ: this.getExtraValue(extraData, 'gnomADg_ASJ_AF', 'gnomADg_AF_asj'),
+            gnomAD_genome_EAS: this.getExtraValue(extraData, 'gnomADg_EAS_AF', 'gnomADg_AF_eas'),
+            gnomAD_genome_FIN: this.getExtraValue(extraData, 'gnomADg_FIN_AF', 'gnomADg_AF_fin'),
+            gnomAD_genome_NFE: this.getExtraValue(extraData, 'gnomADg_NFE_AF', 'gnomADg_AF_nfe'),
+            gnomAD_genome_OTH: this.getExtraValue(extraData, 'gnomADg_REMAINING_AF', 'gnomADg_AF_oth'),
             ExAC_ALL: this.calculateService.calculateExac('_Adj', extraData, this.annoStream.headings),
             ExAC_AFR: this.calculateService.calculateExac('_AFR', extraData, this.annoStream.headings),
             ExAC_AMR: this.calculateService.calculateExac('_AMR', extraData, this.annoStream.headings),
@@ -920,12 +980,12 @@ export class VcfService {
             ExAC_NFE: this.calculateService.calculateExac('_NFE', extraData, this.annoStream.headings),
             ExAC_OTH: this.calculateService.calculateExac('_OTH', extraData, this.annoStream.headings),
             ExAC_SAS: this.calculateService.calculateExac('_SAS', extraData, this.annoStream.headings),
-            AF_1000g: this.calculateService.formatData(this.calculateService.getExtraData('AF', extraData, this.annoStream.headings)),
-            EAS_AF_1000g: this.calculateService.formatData(this.calculateService.getExtraData('EAS_AF', extraData, this.annoStream.headings)),
-            AMR_AF_1000g: this.calculateService.formatData(this.calculateService.getExtraData('AMR_AF', extraData, this.annoStream.headings)),
-            AFR_AF_1000g: this.calculateService.formatData(this.calculateService.getExtraData('AFR_AF', extraData, this.annoStream.headings)),
-            EUR_AF_1000g: this.calculateService.formatData(this.calculateService.getExtraData('EUR_AF', extraData, this.annoStream.headings)),
-            SAS_AF_1000g: this.calculateService.formatData(this.calculateService.getExtraData('SAS_AF', extraData, this.annoStream.headings)),
+            AF_1000g: this.getExtraValue(extraData, 'AF'),
+            EAS_AF_1000g: this.getExtraValue(extraData, 'EAS_AF'),
+            AMR_AF_1000g: this.getExtraValue(extraData, 'AMR_AF'),
+            AFR_AF_1000g: this.getExtraValue(extraData, 'AFR_AF'),
+            EUR_AF_1000g: this.getExtraValue(extraData, 'EUR_AF'),
+            SAS_AF_1000g: this.getExtraValue(extraData, 'SAS_AF'),
         };
 
         let gnomAD_MAX_AF = this.calculateService.getMAX_AF(alleleFrequencyData);
@@ -959,17 +1019,17 @@ export class VcfService {
             }
         }
 
-        let HGNC_SYMONYMS = this.calculateService.formatData(this.calculateService.getExtraData('HGNC_SYNONYMS', extraData, this.annoStream.headings));
-        let HGNC_PRE_SYMBOL = this.calculateService.formatData(this.calculateService.getExtraData('HGNC_PRE_SYMBOL', extraData, this.annoStream.headings));
-        let geneSplicer = this.calculateService.getExtraData('GeneSplicer', extraData, this.annoStream.headings);
-        let IMPACT = this.calculateService.getExtraData('IMPACT', extraData, this.annoStream.headings);
-        let VARIANT_CLASS = this.calculateService.getExtraData('VARIANT_CLASS', extraData, this.annoStream.headings);
-        let VAR_GENE = this.calculateService.formatData(this.calculateService.getExtraData('variantScore_VAR_GENE', extraData, this.annoStream.headings));
-        let VAR_SCORE = this.calculateService.formatData(this.calculateService.getExtraData('variantScore_VAR_SCORE', extraData, this.annoStream.headings));
+        let HGNC_SYMONYMS = this.getExtraValue(extraData, 'HGNC_SYNONYMS');
+        let HGNC_PRE_SYMBOL = this.getExtraValue(extraData, 'HGNC_PRE_SYMBOL');
+        let geneSplicer = this.getExtraValue(extraData, 'GeneSplicer');
+        let IMPACT = this.getExtraValue(extraData, 'IMPACT');
+        let VARIANT_CLASS = this.getExtraValue(extraData, 'VARIANT_CLASS');
+        let VAR_GENE = this.getExtraValue(extraData, 'variantScore_VAR_GENE');
+        let VAR_SCORE = this.getExtraValue(extraData, 'variantScore_VAR_SCORE');
         let VAR_GENE_VAL = '.';
         let VAR_SCORE_VAL = '.';
 
-        let rsId = this.calculateService.formatData(this.calculateService.getExtraData('dbSNP_RS', extraData, this.annoStream.headings));
+        let rsId = this.getExtraValue(extraData, 'dbSNP_RS');
         rsId = rsId != '.' ? ('rs' + rsId) : '.';
         let rsIdVep = this.calculateService.formatData(this.calculateService.getRsID(lineData[this.annoStream.headings.indexOf('Existing_variation')]));
         rsId = rsId != '.' ? rsId : rsIdVep;
@@ -1024,10 +1084,10 @@ export class VcfService {
             this.calculateService.getGnomAD(alleleFrequencyData.gnomAD_exome_NFE, alleleFrequencyData.gnomAD_genome_NFE),    //  gnomAD_exome_NFE
             this.calculateService.getGnomAD(alleleFrequencyData.gnomAD_exome_OTH, alleleFrequencyData.gnomAD_genome_OTH),    //  gnomAD_exome_OTH
             alleleFrequencyData.gnomAD_exome_SAS,                               //  gnomAD_exome_SAS
-            this.calculateService.formatData(this.calculateService.getExtraData('SIFT', extraData, this.annoStream.headings)),              //  SIFT_score
-            this.calculateService.formatData(this.calculateService.getExtraData('PolyPhen', extraData, this.annoStream.headings)),          //  Polyphen2_HDIV_score
-            this.calculateService.formatData(this.calculateService.getExtraData('CADD_PHRED', extraData, this.annoStream.headings)),        //  CADD_phred
-            this.calculateService.formatData(this.calculateService.getExtraData('CADD_RAW', extraData, this.annoStream.headings)),          //  CADD_raw
+            this.getExtraValue(extraData, 'SIFT'),                                  //  SIFT_score
+            this.getExtraValue(extraData, 'PolyPhen'),                              //  Polyphen2_HDIV_score
+            this.getExtraValue(extraData, 'CADD_PHRED'),                            //  CADD_phred
+            this.getExtraValue(extraData, 'CADD_RAW'),                              //  CADD_raw
             CLINSIG,                                                            //  CLINSIG
             AF_1000g,                                                           //  1000g_AF
             EAS_AF_1000g,                                                       //  1000g_EAS_AF
@@ -1039,9 +1099,9 @@ export class VcfService {
             Consequence,                                                        //  Consequence
             varHGVSc,                                                           //  varHGVSc
             varHGVSp,                                                           //  varHGVSp
-            this.calculateService.formatData(this.calculateService.getExtraData('EXON', extraData, this.annoStream.headings)),              //  EXON
-            this.calculateService.formatData(this.calculateService.getExtraData('INTRON', extraData, this.annoStream.headings)),            //  INTRON
-            this.calculateService.formatData(this.calculateService.getExtraData('DOMAINS', extraData, this.annoStream.headings)),           //  DOMAINS
+            this.getExtraValue(extraData, 'EXON'),                                  //  EXON
+            this.getExtraValue(extraData, 'INTRON'),                                //  INTRON
+            this.getExtraValue(extraData, 'DOMAINS'),                               //  DOMAINS
             AFR_AF_1000g,                                                       //  1000g_AFR_AF
             EUR_AF_1000g,                                                       //  1000g_EUR_AF
             SAS_AF_1000g,                                                       //  1000g_SAS_AF
@@ -1049,16 +1109,16 @@ export class VcfService {
             EA_AF,                                                              //  EA_AF
             MAX_AF,                                                             //  MAX_AF
             MAX_AF_POPS,                                                        //  MAX_AF_POPS
-            this.calculateService.formatData(this.calculateService.getExtraData('SOMATIC', extraData, this.annoStream.headings)),           //  SOMATIC
-            this.calculateService.formatData(this.calculateService.getExtraData('PHENO', extraData, this.annoStream.headings)),             //  PHENO
-            this.calculateService.formatData(this.calculateService.getExtraData('PUBMED', extraData, this.annoStream.headings)),            //  PUBMED
-            this.calculateService.formatData(this.calculateService.getExtraData('MOTIF_NAME', extraData, this.annoStream.headings)),        //  MOTIF_NAME
-            this.calculateService.formatData(this.calculateService.getExtraData('MOTIF_POS', extraData, this.annoStream.headings)),         //  MOTIF_POS
-            this.calculateService.formatData(this.calculateService.getExtraData('HIGH_INF_POS', extraData, this.annoStream.headings)),      //  HIGH_INF_POS
-            this.calculateService.formatData(this.calculateService.getExtraData('MOTIF_SCORE_CHANGE', extraData, this.annoStream.headings)),   //  MOTIF_SCORE_CHANGE
-            this.calculateService.formatData(this.calculateService.getExtraData('CADD_PHRED', extraData, this.annoStream.headings)),           //  CADD_PHRED
-            this.calculateService.formatData(this.calculateService.getExtraData('CADD_RAW', extraData, this.annoStream.headings)),             //  CADD_RAW
-            this.calculateService.formatData(this.calculateService.getExtraData('CANONICAL', extraData, this.annoStream.headings)),            //  CANONICAL
+            this.getExtraValue(extraData, 'SOMATIC'),                               //  SOMATIC
+            this.getExtraValue(extraData, 'PHENO'),                                 //  PHENO
+            this.getExtraValue(extraData, 'PUBMED'),                                //  PUBMED
+            this.getExtraValue(extraData, 'MOTIF_NAME'),                            //  MOTIF_NAME
+            this.getExtraValue(extraData, 'MOTIF_POS'),                             //  MOTIF_POS
+            this.getExtraValue(extraData, 'HIGH_INF_POS'),                          //  HIGH_INF_POS
+            this.getExtraValue(extraData, 'MOTIF_SCORE_CHANGE'),                    //  MOTIF_SCORE_CHANGE
+            this.getExtraValue(extraData, 'CADD_PHRED'),                            //  CADD_PHRED
+            this.getExtraValue(extraData, 'CADD_RAW'),                              //  CADD_RAW
+            this.getExtraValue(extraData, 'CANONICAL'),                             //  CANONICAL
             '.',                                                                //  CLINSIG_PRIORITY
             '.',                                                                //  CLINSIG_FINAL
             '.',                                                                //  hasClinicalSynopsis
@@ -1093,23 +1153,34 @@ export class VcfService {
             alleleFrequencyData.gnomAD_exome_OTH,                                // gnomADe_OTH
             alleleFrequencyData.gnomAD_exome_SAS,                                // gnomADe_SAS
             Variant_ID,                                                          // Clinvar_Variant_ID
-            this.calculateService.formatData(this.calculateService.getExtraData('masterMind_MMID3', extraData, this.annoStream.headings)),  // masterMind_MMID3
-            this.calculateService.formatData(this.calculateService.getExtraData('masterMind_MMCNT3', extraData, this.annoStream.headings)), // masterMind_MMCNT3
-            this.calculateService.formatData(this.calculateService.getExtraData('masterMind_GENE', extraData, this.annoStream.headings)),   // masterMind_GENE
-            this.calculateService.formatData(geneSplicer),                                       // GeneSplicer
-            this.calculateService.formatData(IMPACT),                                            // IMPACT
-            this.calculateService.formatData(STRAND),                                            // STRAND
-            this.calculateService.formatData(VARIANT_CLASS),                                     // VARIANT_CLASS
+            this.getExtraValue(extraData, 'masterMind_MMID3'),                   // masterMind_MMID3
+            this.getExtraValue(extraData, 'masterMind_MMCNT3'),                  // masterMind_MMCNT3
+            this.getExtraValue(extraData, 'masterMind_GENE'),                    // masterMind_GENE
+            this.calculateService.formatData(geneSplicer),                       // GeneSplicer
+            this.calculateService.formatData(IMPACT),                            // IMPACT
+            this.calculateService.formatData(STRAND),                            // STRAND
+            this.calculateService.formatData(VARIANT_CLASS),                     // VARIANT_CLASS
             this.calculateService.formatData(VAR_GENE_VAL),                                      // VAR_GENE
             this.calculateService.formatData(VAR_SCORE_VAL),                                     // VAR_SCORE
             this.calculateService.formatData(vcfExtraData.QUAL),                                 // QUAL
             this.calculateService.formatData(vcfExtraData.FILTER),                               // FILTER
             this.calculateService.formatData(vcfExtraData.GT),                                   // GT
             TrimmedVariant,                                                                      // Trimmed_variant
-            this.calculateService.formatData(this.calculateService.getExtraData('gnomMT_AF_hom', extraData, this.annoStream.headings)),           // AF_hom
-            this.calculateService.formatData(this.calculateService.getExtraData('gnomMT_AF_het', extraData, this.annoStream.headings)),           // AF_het
-            this.calculateService.formatData(this.calculateService.getExtraData('gnomMT_pop_AF_hom', extraData, this.annoStream.headings)),       // pop_AF_hom
-            this.calculateService.formatData(this.calculateService.getExtraData('gnomMT_pop_AF_het', extraData, this.annoStream.headings)),       // pop_AF_het
+            this.getExtraValue(extraData, 'gnomMT_AF_hom'),                       // AF_hom
+            this.getExtraValue(extraData, 'gnomMT_AF_het'),                       // AF_het
+            this.getExtraValue(extraData, 'gnomMT_pop_AF_hom'),                   // pop_AF_hom
+            this.getExtraValue(extraData, 'gnomMT_pop_AF_het'),                   // pop_AF_het
+            this.getExtraValue(extraData, 'REVEL'),                                // REVEL
+            this.getExtraValue(extraData, 'am_pathogenicity'),                     // am_pathogenicity
+            this.getExtraValue(extraData, 'am_class'),                             // am_class
+            this.getExtraValue(extraData, 'SpliceAI_pred_DP_AG'),                  // SpliceAI_DP_AG
+            this.getExtraValue(extraData, 'SpliceAI_pred_DP_AL'),                  // SpliceAI_DP_AL
+            this.getExtraValue(extraData, 'SpliceAI_pred_DP_DG'),                  // SpliceAI_DP_DG
+            this.getExtraValue(extraData, 'SpliceAI_pred_DP_DL'),                  // SpliceAI_DP_DL
+            this.getExtraValue(extraData, 'SpliceAI_pred_DS_AG'),                  // SpliceAI_DS_AG
+            this.getExtraValue(extraData, 'SpliceAI_pred_DS_AL'),                  // SpliceAI_DS_AL
+            this.getExtraValue(extraData, 'SpliceAI_pred_DS_DG'),                  // SpliceAI_DS_DG
+            this.getExtraValue(extraData, 'SpliceAI_pred_DS_DL'),                // SpliceAI_SYMBOL
         ]
 
         fs.appendFileSync(this.annoFile, '\n' + data.join('\t'));

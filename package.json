@@ -21,7 +21,8 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "test-vcf": "ts-node -r tsconfig-paths/register scripts/trigger-analysis.ts",
-    "test-vcf:file": "ts-node -r tsconfig-paths/register scripts/trigger-analysis.ts"
+    "test-vcf:file": "ts-node -r tsconfig-paths/register scripts/trigger-analysis.ts",
+    "test-vcf:hg38": "ts-node -r tsconfig-paths/register scripts/trigger-analysis.ts test/fixtures/sample-analysis_hg38.json"
   },
   "dependencies": {
     "@nestjs/axios": "4.0.0",
